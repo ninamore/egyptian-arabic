@@ -1109,6 +1109,26 @@ export default function App() {
   const [testRunning, setTestRunning] = useState(false);
 
   // Helper to apply a progress blob to state
+  function buildPlan(tp, lf, ub) {
+    const items = [];
+    const unseenCount = ALL_VOCAB.filter(v => { const p = (tp||{})[v.id]; return !p||!p.seen; }).length;
+    if (unseenCount > 0) items.push({id:"new_words", label:`Learn new words (${Math.min(unseenCount,6)} available)`, status:"pending", note:""});
+    const rc = ALL_VOCAB.filter(v=>((tp||{})[v.id]?.wrong||0)>0).length;
+    if (rc > 0) items.push({id:"review", label:`Review ${rc} word${rc>1?"s":""} in Review tab`, status:"pending", note:""});
+    const lfc = Object.keys(lf||{}).length;
+    if (lfc > 0) items.push({id:"flags", label:`Practice ${lfc} flagged word${lfc>1?"s":""} in Learn`, status:"pending", note:""});
+    items.push({id:"test", label:"Complete one Mixed Test", status:"pending", note:""});
+    const closeToUnlock = SESSIONS.find(s => {
+      const u = (ub||{})[s.id]||1;
+      if (u>=3) return false;
+      const vocab = getSessionVocab(s.id, u);
+      const mastered = vocab.filter(v => { const p=(tp||{})[v.id]; return p&&(p.correct||0)>=2&&(p.wrong||0)===0; }).length;
+      return mastered/vocab.length >= 0.5;
+    });
+    if (closeToUnlock) items.push({id:"unlock", label:`${closeToUnlock.emoji} ${closeToUnlock.title}: close to unlocking next batch!`, status:"pending", note:""});
+    setPlan(items);
+  }
+
   function applyProgress(data) {
     if (!data) return;
     if (data.learnFlags) setLearnFlags(data.learnFlags);
@@ -1118,6 +1138,7 @@ export default function App() {
       const ub = {};
       [1,2,3,4,5].forEach(id => { ub[id] = calcUnlockedBatch(id, data.testProgress); });
       setUnlockedBatches(ub);
+      buildPlan(data.testProgress, data.learnFlags||{}, ub);
     }
   }
 
@@ -1138,6 +1159,7 @@ export default function App() {
           localSet("egy_progress_cache", remote);
         }
       } else {
+        buildPlan({}, {}, {1:1,2:1,3:1,4:1,5:1});
         setLoading(false); // Show name entry screen
       }
     }
@@ -1356,44 +1378,7 @@ export default function App() {
 
   // ── TODAY'S PLAN STATE ──
   // Plan items: { id, label, status: "pending"|"done"|"issue", note }
-  const [plan, setPlan] = useState(() => {
-    // Build today's plan based on current progress
-    const today = new Date().toLocaleDateString();
-    const items = [];
-    // New words available?
-    const unseenCount = ALL_VOCAB.filter(v => {
-      const p = testProgress[v.id];
-      return !p || !p.seen;
-    }).length;
-    if (unseenCount > 0) {
-      items.push({ id:"new_words", label:`Learn new words (${Math.min(unseenCount,6)} available)`, status:"pending", note:"" });
-    }
-    // Words to review?
-    if (reviewCount > 0) {
-      items.push({ id:"review", label:`Review ${reviewCount} word${reviewCount>1?"s":""} in Review tab`, status:"pending", note:"" });
-    }
-    // Flagged in Learn?
-    if (learnFlagCount > 0) {
-      items.push({ id:"flags", label:`Practice ${learnFlagCount} flagged word${learnFlagCount>1?"s":""} in Learn`, status:"pending", note:"" });
-    }
-    // Always suggest a test
-    items.push({ id:"test", label:"Complete one Mixed Test", status:"pending", note:"" });
-    // Batch close to unlock?
-    const closeToUnlock = SESSIONS.find(s => {
-      const ub = unlockedBatches[s.id] || 1;
-      if (ub >= 3) return false;
-      const currentVocab = getSessionVocab(s.id, ub);
-      const mastered = currentVocab.filter(v => {
-        const p = testProgress[v.id];
-        return p && (p.correct||0) >= 2 && (p.wrong||0) === 0;
-      }).length;
-      return mastered / currentVocab.length >= 0.5; // halfway there
-    });
-    if (closeToUnlock) {
-      items.push({ id:"unlock", label:`${closeToUnlock.emoji} ${closeToUnlock.title}: close to unlocking next batch!`, status:"pending", note:"" });
-    }
-    return items;
-  });
+  const [plan, setPlan] = useState([]);
   const [planOpen, setPlanOpen] = useState(true);
   const [planNoteId, setPlanNoteId] = useState(null);
   const [planNoteText, setPlanNoteText] = useState("");
