@@ -1246,20 +1246,21 @@ export default function App() {
     </div>
   );
 
+  // Name entry handler — must be defined outside the conditional render
+  async function handleStart() {
+    const name = nameInput.trim().toLowerCase().replace(/\s+/g, "_");
+    if (!name) return;
+    setSyncing(true);
+    const existing = await loadUserProgress(name);
+    if (existing) applyProgress(existing);
+    localSet("egy_user_id", name);
+    localSet("egy_progress_cache", existing || {});
+    setUserId(name);
+    setSyncing(false);
+  }
+
   // Name entry screen — shown on first ever open
   if (!userId) {
-    async function handleStart() {
-      const name = nameInput.trim().toLowerCase().replace(/\s+/g, "_");
-      if (!name) return;
-      setSyncing(true);
-      // Check if this user already has progress in Supabase
-      const existing = await loadUserProgress(name);
-      if (existing) applyProgress(existing);
-      localSet("egy_user_id", name);
-      localSet("egy_progress_cache", existing || {});
-      setUserId(name);
-      setSyncing(false);
-    }
     return (
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",
         fontFamily:"Georgia,serif",flexDirection:"column",padding:"32px 24px",background:"#FAFAF8"}}>
