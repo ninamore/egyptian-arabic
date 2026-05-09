@@ -227,13 +227,61 @@ const ALL_VOCAB = SESSIONS.flatMap(s => {
 const ALL_MEANINGS      = ALL_VOCAB.map(v => v.meaning);
 const ALL_SENT_MEANINGS = ALL_VOCAB.map(v => v.sentMeaning);
 
-// ─── STORAGE ──────────────────────────────────────────────────────────────────
-function storageGet(key) {
-  try { const val = localStorage.getItem(key); return val ? JSON.parse(val) : null; }
-  catch { return null; }
+// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_KEY;
+
+// ─── SUPABASE HELPERS ─────────────────────────────────────────────────────────
+// All progress is stored as a single JSON blob per user in the "progress" table.
+// Row: { user_id: "nina", data: { learnFlags, testProgress, stats }, updated_at: ... }
+// We also cache in localStorage for instant load on revisit.
+
+function localGet(key) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
 }
-function storageSet(key, val) {
+function localSet(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
+async function supabaseFetch(path, options = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": options.prefer || "",
+    },
+    ...options,
+  });
+  if (!res.ok) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// Load all progress for a user from Supabase
+async function loadUserProgress(userId) {
+  const rows = await supabaseFetch(
+    `progress?user_id=eq.${encodeURIComponent(userId)}&select=data&limit=1`
+  );
+  if (rows && rows.length > 0) return rows[0].data;
+  return null;
+}
+
+// Save all progress for a user to Supabase (upsert)
+async function saveUserProgress(userId, data) {
+  // Cache locally for instant loads
+  localSet("egy_user_id", userId);
+  localSet("egy_progress_cache", data);
+
+  await supabaseFetch("progress", {
+    method: "POST",
+    prefer: "resolution=merge-duplicates",
+    body: JSON.stringify({
+      user_id: userId,
+      data: data,
+      updated_at: new Date().toISOString(),
+    }),
+  });
 }
 
 // ─── TTS ──────────────────────────────────────────────────────────────────────
@@ -1040,6 +1088,9 @@ export default function App() {
   const [tab, setTab]             = useState("learn");
   const [showTrans, setShowTrans] = useState(true);
   const [loading, setLoading]     = useState(true);
+  const [userId, setUserId]       = useState(null);   // null = not set yet
+  const [nameInput, setNameInput] = useState("");     // for the name entry screen
+  const [syncing, setSyncing]     = useState(false);  // shows sync indicator
 
   // learnFlags: { [vocabId]: true } — mistakes in Learn tab, managed separately
   const [learnFlags, setLearnFlags] = useState({});
@@ -1057,34 +1108,70 @@ export default function App() {
   // Test tab state
   const [testRunning, setTestRunning] = useState(false);
 
-  useEffect(() => {
-    const lf = storageGet("learnFlags_v1");
-    const tp = storageGet("testProgress_v1");
-    const st = storageGet("stats_v5");
-    if (lf) setLearnFlags(lf);
-    if (st) setStats(st);
-    if (tp) {
-      setTestProgress(tp);
+  // Helper to apply a progress blob to state
+  function applyProgress(data) {
+    if (!data) return;
+    if (data.learnFlags) setLearnFlags(data.learnFlags);
+    if (data.stats) setStats(data.stats);
+    if (data.testProgress) {
+      setTestProgress(data.testProgress);
       const ub = {};
-      [1,2,3,4,5].forEach(id => { ub[id] = calcUnlockedBatch(id, tp); });
+      [1,2,3,4,5].forEach(id => { ub[id] = calcUnlockedBatch(id, data.testProgress); });
       setUnlockedBatches(ub);
     }
-    setLoading(false);
+  }
+
+  // On mount: check if we have a saved user ID, load their progress
+  useEffect(() => {
+    async function init() {
+      const savedId = localGet("egy_user_id");
+      if (savedId) {
+        setUserId(savedId);
+        // Load from local cache instantly so app feels fast
+        const cached = localGet("egy_progress_cache");
+        if (cached) applyProgress(cached);
+        setLoading(false);
+        // Then sync from Supabase in background
+        const remote = await loadUserProgress(savedId);
+        if (remote) {
+          applyProgress(remote);
+          localSet("egy_progress_cache", remote);
+        }
+      } else {
+        setLoading(false); // Show name entry screen
+      }
+    }
+    init();
   }, []);
+
+  // Build current progress snapshot for saving
+  function buildSnapshot(overrides = {}) {
+    return {
+      learnFlags:   overrides.learnFlags   ?? learnFlags,
+      testProgress: overrides.testProgress ?? testProgress,
+      stats:        overrides.stats        ?? stats,
+    };
+  }
 
   function saveLearnFlags(flags) {
     setLearnFlags(flags);
-    storageSet("learnFlags_v1", flags);
+    const snap = buildSnapshot({ learnFlags: flags });
+    localSet("egy_progress_cache", snap);
+    saveUserProgress(userId, snap);
   }
 
   function saveTestProgress(tp) {
     setTestProgress(tp);
-    storageSet("testProgress_v1", tp);
+    const snap = buildSnapshot({ testProgress: tp });
+    localSet("egy_progress_cache", snap);
+    saveUserProgress(userId, snap);
   }
 
   function saveStats(st) {
     setStats(st);
-    storageSet("stats_v5", st);
+    const snap = buildSnapshot({ stats: st });
+    localSet("egy_progress_cache", snap);
+    saveUserProgress(userId, snap);
   }
 
   // Called when a Learn quiz session ends
@@ -1159,6 +1246,58 @@ export default function App() {
     </div>
   );
 
+  // Name entry screen — shown on first ever open
+  if (!userId) {
+    async function handleStart() {
+      const name = nameInput.trim().toLowerCase().replace(/\s+/g, "_");
+      if (!name) return;
+      setSyncing(true);
+      // Check if this user already has progress in Supabase
+      const existing = await loadUserProgress(name);
+      if (existing) applyProgress(existing);
+      localSet("egy_user_id", name);
+      localSet("egy_progress_cache", existing || {});
+      setUserId(name);
+      setSyncing(false);
+    }
+    return (
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",
+        fontFamily:"Georgia,serif",flexDirection:"column",padding:"32px 24px",background:"#FAFAF8"}}>
+        <div style={{fontSize:52,marginBottom:8}}>مصري</div>
+        <div style={{fontSize:22,fontWeight:"bold",color:"#2c2c2c",marginBottom:6}}>Egyptian Arabic</div>
+        <div style={{fontSize:14,color:"#aaa",marginBottom:40}}>speak · listen · grow 👶</div>
+
+        <div style={{background:"#fff",borderRadius:20,padding:"28px 24px",width:"100%",maxWidth:360,
+          boxShadow:"0 4px 24px rgba(0,0,0,0.08)"}}>
+          <p style={{fontSize:16,fontWeight:"bold",color:"#2c2c2c",marginBottom:6}}>What's your name?</p>
+          <p style={{fontSize:13,color:"#888",lineHeight:1.6,marginBottom:20}}>
+            This is how your progress is saved. Use the same name on any device to pick up where you left off.
+          </p>
+          <input
+            type="text"
+            placeholder="e.g. Nina"
+            value={nameInput}
+            onChange={e => setNameInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleStart()}
+            style={{width:"100%",padding:"13px 16px",fontSize:16,border:"2px solid #e0e0e0",
+              borderRadius:12,fontFamily:"Georgia,serif",marginBottom:14,outline:"none",
+              boxSizing:"border-box"}}
+            autoFocus
+          />
+          <button onClick={handleStart} disabled={!nameInput.trim() || syncing}
+            style={{width:"100%",padding:14,background:nameInput.trim()?"#E8936A":"#ccc",
+              color:"#fff",border:"none",borderRadius:12,fontSize:16,fontWeight:"bold",
+              cursor:nameInput.trim()?"pointer":"not-allowed",fontFamily:"Georgia,serif"}}>
+            {syncing ? "Loading..." : "Let's go! →"}
+          </button>
+        </div>
+        <p style={{fontSize:11,color:"#ccc",marginTop:20,textAlign:"center"}}>
+          Your name is stored privately. No password needed.
+        </p>
+      </div>
+    );
+  }
+
   const learnFlagCount = Object.keys(learnFlags).length;
   const reviewCount    = ALL_VOCAB.filter(v=>(testProgress[v.id]?.wrong||0)>0).length;
 
@@ -1174,6 +1313,9 @@ export default function App() {
           <div style={A.tagline}>speak · listen · grow 👶</div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <div style={{fontSize:11,color:"#555",fontStyle:"italic"}}>
+            {syncing ? "⏳" : "✓"} {userId}
+          </div>
           <div style={A.pill}>🔥{stats.dayStreak||0}</div>
           <button style={A.transBtn} onClick={()=>setShowTrans(t=>!t)}
             title="Show/hide romanization (pronunciation guide)">
