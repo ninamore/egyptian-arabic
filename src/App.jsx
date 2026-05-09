@@ -547,8 +547,7 @@ function TestExCard({ item, onResult }) {
       <div style={X.chip}>{chip}</div>
 
       {/* Question */}
-      <div style={{...X.stimulus, cursor:type==="reverse"?"default":"pointer"}}
-        onClick={() => type!=="reverse" && tts(type==="sentence"?vocab.sentence:vocab.egy)}>
+      <div style={{...X.stimulus, cursor:"default"}}>
         {type==="reverse" ? (
           <div style={{fontSize:22,fontWeight:"bold",color:"#2c2c2c",marginBottom:4}}>{vocab.meaning}</div>
         ) : type==="sentence" ? (
@@ -1522,7 +1521,6 @@ export default function App() {
                 const currentVocab = getSessionVocab(s.id, ub);
                 const totalAvailable = getSessionVocab(s.id, 3).length; // 20
                 const flagged = currentVocab.filter(v=>learnFlags[v.id]).length;
-                const batchLabel = ub === 1 ? "Batch 1 of 3" : ub === 2 ? "Batch 2 of 3 unlocked! 🔓" : "All 3 batches unlocked! 🌟";
                 return (
                   <div key={s.id} onClick={()=>{setActiveLearnSession(s);setLearnMode("browse");setLearnDoneData(null);}}
                     style={{...A.row,borderLeft:`5px solid ${s.color}`}}>
@@ -1530,9 +1528,11 @@ export default function App() {
                     <div style={{flex:1}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                         <span style={{fontWeight:"bold",fontSize:15}}>{s.title}</span>
-                        {flagged>0&&<span style={{fontSize:12,color:"#dc3545"}}>🚩 {flagged} flagged</span>}
+                        {flagged>0&&<span style={{fontSize:12,color:"#dc3545"}}>🚩 {flagged}</span>}
                       </div>
-                      <div style={{fontSize:12,color:"#aaa",marginTop:2}}>{currentVocab.length} / {totalAvailable} words · {batchLabel}</div>
+                      <div style={{fontSize:12,color:"#aaa",marginTop:2}}>
+                        {currentVocab.length} words{ub < 3 ? ` · 🔒 ${totalAvailable - currentVocab.length} more to unlock` : " · ✓ all unlocked"}
+                      </div>
                     </div>
                     <span style={{color:"#ccc",fontSize:20}}>›</span>
                   </div>
@@ -1754,14 +1754,17 @@ export default function App() {
 
       {/* ── FLOATING FEEDBACK BUTTON ── */}
       {!fbOpen && (
-        <button onClick={() => { setFbOpen(true); setFbSent(false); }}
-          style={{ position:"fixed", bottom:80, right:16, zIndex:999,
-            background:"#2c2c2c", color:"#fff", border:"none", borderRadius:"50%",
-            width:44, height:44, fontSize:20, cursor:"pointer", boxShadow:"0 3px 12px rgba(0,0,0,0.3)",
-            display:"flex", alignItems:"center", justifyContent:"center" }}
-          title="Send feedback">
-          💬
-        </button>
+        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)",
+          width:"100%", maxWidth:430, pointerEvents:"none", zIndex:999,
+          display:"flex", justifyContent:"flex-end", paddingRight:16, boxSizing:"border-box" }}>
+          <button onClick={() => { setFbOpen(true); setFbSent(false); }}
+            style={{ pointerEvents:"all", background:"#E8936A", color:"#fff", border:"none",
+              borderRadius:20, padding:"8px 14px", fontSize:13, fontWeight:"bold",
+              cursor:"pointer", boxShadow:"0 3px 12px rgba(0,0,0,0.25)",
+              display:"flex", alignItems:"center", gap:6, fontFamily:"inherit" }}>
+            💬 Feedback
+          </button>
+        </div>
       )}
 
       {/* ── FEEDBACK SHEET ── */}
