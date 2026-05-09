@@ -1047,6 +1047,7 @@ export default function App() {
   const [testProgress, setTestProgress] = useState({});
   // stats: streak, accuracy, history
   const [stats, setStats] = useState({totalCorrect:0,totalWrong:0,dayStreak:0,lastPracticeDate:null,testHistory:[]});
+  const [unlockedBatches, setUnlockedBatches] = useState({1:1,2:1,3:1,4:1,5:1});
 
   // Learn tab state
   const [activeLearnSession, setActiveLearnSession] = useState(null);
@@ -1061,8 +1062,13 @@ export default function App() {
     const tp = storageGet("testProgress_v1");
     const st = storageGet("stats_v5");
     if (lf) setLearnFlags(lf);
-    if (tp) setTestProgress(tp);
     if (st) setStats(st);
+    if (tp) {
+      setTestProgress(tp);
+      const ub = {};
+      [1,2,3,4,5].forEach(id => { ub[id] = calcUnlockedBatch(id, tp); });
+      setUnlockedBatches(ub);
+    }
     setLoading(false);
   }, []);
 
