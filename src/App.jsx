@@ -1301,6 +1301,128 @@ export default function App() {
   const learnFlagCount = Object.keys(learnFlags).length;
   const reviewCount    = ALL_VOCAB.filter(v=>(testProgress[v.id]?.wrong||0)>0).length;
 
+  // ── FEEDBACK WIDGET STATE ──
+  const [fbOpen, setFbOpen]       = useState(false);
+  const [fbTag, setFbTag]         = useState(null);
+  const [fbText, setFbText]       = useState("");
+  const [fbSent, setFbSent]       = useState(false);
+  const [fbSending, setFbSending] = useState(false);
+
+  // Determine current context for feedback
+  function getFbContext() {
+    if (tab === "learn") {
+      if (activeLearnSession && learnMode === "quiz")  return `Learn > ${activeLearnSession.title} > Quiz`;
+      if (activeLearnSession && learnMode === "done")  return `Learn > ${activeLearnSession.title} > Results`;
+      if (activeLearnSession)                           return `Learn > ${activeLearnSession.title}`;
+      return "Learn > Session List";
+    }
+    if (tab === "test")     return testRunning ? "Test > Running" : "Test > Home";
+    if (tab === "review")   return "Review > Flashcards";
+    if (tab === "progress") return "Progress";
+    return "Unknown";
+  }
+
+  async function submitFeedback() {
+    if (!fbText.trim() && !fbTag) return;
+    setFbSending(true);
+    try {
+      await supabaseFetch("feedback", {
+        method: "POST",
+        prefer: "return=minimal",
+        body: JSON.stringify({
+          user_id:   userId,
+          page:      getFbContext(),
+          tag:       fbTag || "General",
+          note:      fbText.trim(),
+          app_state: {
+            tab, learnMode,
+            session: activeLearnSession?.title || null,
+            testRunning,
+            learnFlagCount,
+            reviewCount,
+            unlockedBatches,
+          },
+          created_at: new Date().toISOString(),
+        }),
+      });
+      setFbSent(true);
+      setTimeout(() => { setFbOpen(false); setFbTag(null); setFbText(""); setFbSent(false); }, 1800);
+    } catch(e) {
+      setFbSent(false);
+    }
+    setFbSending(false);
+  }
+
+  // ── TODAY'S PLAN STATE ──
+  // Plan items: { id, label, status: "pending"|"done"|"issue", note }
+  const [plan, setPlan] = useState(() => {
+    // Build today's plan based on current progress
+    const today = new Date().toLocaleDateString();
+    const items = [];
+    // New words available?
+    const unseenCount = ALL_VOCAB.filter(v => {
+      const p = testProgress[v.id];
+      return !p || !p.seen;
+    }).length;
+    if (unseenCount > 0) {
+      items.push({ id:"new_words", label:`Learn new words (${Math.min(unseenCount,6)} available)`, status:"pending", note:"" });
+    }
+    // Words to review?
+    if (reviewCount > 0) {
+      items.push({ id:"review", label:`Review ${reviewCount} word${reviewCount>1?"s":""} in Review tab`, status:"pending", note:"" });
+    }
+    // Flagged in Learn?
+    if (learnFlagCount > 0) {
+      items.push({ id:"flags", label:`Practice ${learnFlagCount} flagged word${learnFlagCount>1?"s":""} in Learn`, status:"pending", note:"" });
+    }
+    // Always suggest a test
+    items.push({ id:"test", label:"Complete one Mixed Test", status:"pending", note:"" });
+    // Batch close to unlock?
+    const closeToUnlock = SESSIONS.find(s => {
+      const ub = unlockedBatches[s.id] || 1;
+      if (ub >= 3) return false;
+      const currentVocab = getSessionVocab(s.id, ub);
+      const mastered = currentVocab.filter(v => {
+        const p = testProgress[v.id];
+        return p && (p.correct||0) >= 2 && (p.wrong||0) === 0;
+      }).length;
+      return mastered / currentVocab.length >= 0.5; // halfway there
+    });
+    if (closeToUnlock) {
+      items.push({ id:"unlock", label:`${closeToUnlock.emoji} ${closeToUnlock.title}: close to unlocking next batch!`, status:"pending", note:"" });
+    }
+    return items;
+  });
+  const [planOpen, setPlanOpen] = useState(true);
+  const [planNoteId, setPlanNoteId] = useState(null);
+  const [planNoteText, setPlanNoteText] = useState("");
+
+  function updatePlanItem(id, status) {
+    setPlan(p => p.map(item => item.id === id ? {...item, status} : item));
+    if (status === "issue") setPlanNoteId(id);
+    else setPlanNoteId(null);
+  }
+
+  async function submitPlanNote(id) {
+    const item = plan.find(p => p.id === id);
+    if (!item) return;
+    setPlan(p => p.map(i => i.id === id ? {...i, note: planNoteText} : i));
+    // Save feedback to Supabase
+    await supabaseFetch("feedback", {
+      method: "POST",
+      prefer: "return=minimal",
+      body: JSON.stringify({
+        user_id: userId,
+        page: "Today's Plan",
+        tag: "Plan Issue",
+        note: `[${item.label}]: ${planNoteText}`,
+        created_at: new Date().toISOString(),
+      }),
+    });
+    setPlanNoteId(null);
+    setPlanNoteText("");
+  }
+
   return (
     <div style={A.wrap}>
       {/* Top bar */}
@@ -1330,6 +1452,76 @@ export default function App() {
           {/* Session list */}
           {!activeLearnSession && (
             <div style={{padding:"12px 16px"}}>
+
+              {/* ── TODAY'S PLAN ── */}
+              <div style={{background:"#1a1a1a",borderRadius:14,marginBottom:14,overflow:"hidden"}}>
+                <button onClick={()=>setPlanOpen(o=>!o)}
+                  style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
+                    padding:"12px 16px",background:"none",border:"none",cursor:"pointer",color:"#fff",fontFamily:"inherit"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:16}}>📋</span>
+                    <span style={{fontWeight:"bold",fontSize:14}}>Today's Plan</span>
+                    <span style={{fontSize:11,color:"#888",marginLeft:4}}>
+                      {plan.filter(p=>p.status==="done").length}/{plan.length} done
+                    </span>
+                  </div>
+                  <span style={{color:"#666",fontSize:14}}>{planOpen?"▲":"▼"}</span>
+                </button>
+
+                {planOpen && (
+                  <div style={{padding:"0 16px 14px"}}>
+                    <p style={{fontSize:11,color:"#666",margin:"0 0 10px",lineHeight:1.5}}>
+                      Check ✅ when done, ❌ if something went wrong. Your feedback goes straight to me.
+                    </p>
+                    {plan.map(item => (
+                      <div key={item.id} style={{marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,background:"#2c2c2c",borderRadius:10,padding:"10px 12px"}}>
+                          <div style={{flex:1,fontSize:13,color:item.status==="done"?"#28a745":item.status==="issue"?"#dc3545":"#ccc",
+                            textDecoration:item.status==="done"?"line-through":"none"}}>
+                            {item.label}
+                          </div>
+                          <div style={{display:"flex",gap:6}}>
+                            <button onClick={()=>updatePlanItem(item.id, item.status==="done"?"pending":"done")}
+                              style={{background:item.status==="done"?"#28a745":"#3d3d3d",border:"none",borderRadius:8,
+                                width:32,height:32,fontSize:16,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                              ✅
+                            </button>
+                            <button onClick={()=>updatePlanItem(item.id, item.status==="issue"?"pending":"issue")}
+                              style={{background:item.status==="issue"?"#dc3545":"#3d3d3d",border:"none",borderRadius:8,
+                                width:32,height:32,fontSize:16,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                              ❌
+                            </button>
+                          </div>
+                        </div>
+                        {planNoteId === item.id && (
+                          <div style={{marginTop:6,display:"flex",gap:6}}>
+                            <input
+                              autoFocus
+                              placeholder="What went wrong?"
+                              value={planNoteText}
+                              onChange={e=>setPlanNoteText(e.target.value)}
+                              onKeyDown={e=>e.key==="Enter"&&submitPlanNote(item.id)}
+                              style={{flex:1,padding:"8px 10px",fontSize:12,border:"1.5px solid #dc3545",
+                                borderRadius:8,fontFamily:"inherit",outline:"none",background:"#fff"}}
+                            />
+                            <button onClick={()=>submitPlanNote(item.id)}
+                              style={{padding:"8px 12px",background:"#dc3545",color:"#fff",border:"none",
+                                borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:"bold",whiteSpace:"nowrap"}}>
+                              Send ↗
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {plan.every(p=>p.status!=="pending") && (
+                      <div style={{textAlign:"center",color:"#E8936A",fontSize:13,marginTop:8,fontWeight:"bold"}}>
+                        🌟 يلا — all done for today!
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <p style={{fontSize:13,color:"#555",lineHeight:1.7,marginBottom:14,background:"#FFF8E7",borderRadius:10,padding:"10px 14px"}}>
                 <strong>How to use Learn:</strong> Read each word, tap ▼ to expand the example sentence, then tap <em>Practice these words</em> to quiz yourself. Words you get wrong get a 🚩 — they'll be prioritized next time you practice this session.
               </p>
@@ -1566,6 +1758,73 @@ export default function App() {
             <span style={{flex:1,textAlign:"center",fontSize:15,fontWeight:"bold",color:"#fff"}}>📊 Progress</span>
           </div>
           <ProgressTab stats={stats} learnFlags={learnFlags} testProgress={testProgress}/>
+        </div>
+      )}
+
+      {/* ── FLOATING FEEDBACK BUTTON ── */}
+      {!fbOpen && (
+        <button onClick={() => { setFbOpen(true); setFbSent(false); }}
+          style={{ position:"fixed", bottom:80, right:16, zIndex:999,
+            background:"#2c2c2c", color:"#fff", border:"none", borderRadius:"50%",
+            width:44, height:44, fontSize:20, cursor:"pointer", boxShadow:"0 3px 12px rgba(0,0,0,0.3)",
+            display:"flex", alignItems:"center", justifyContent:"center" }}
+          title="Send feedback">
+          💬
+        </button>
+      )}
+
+      {/* ── FEEDBACK SHEET ── */}
+      {fbOpen && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"flex-end" }}
+          onClick={e => { if(e.target === e.currentTarget) { setFbOpen(false); setFbTag(null); setFbText(""); }}}>
+          <div style={{ background:"#fff", borderRadius:"20px 20px 0 0", padding:"20px 20px 32px", width:"100%", maxWidth:430, margin:"0 auto" }}>
+            {fbSent ? (
+              <div style={{ textAlign:"center", padding:"20px 0" }}>
+                <div style={{ fontSize:40, marginBottom:10 }}>✅</div>
+                <div style={{ fontSize:16, fontWeight:"bold", color:"#28a745" }}>Got it — شكراً!</div>
+                <div style={{ fontSize:13, color:"#888", marginTop:4 }}>Feedback sent. I'll fix it.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+                  <div>
+                    <div style={{ fontWeight:"bold", fontSize:15 }}>Send Feedback</div>
+                    <div style={{ fontSize:11, color:"#aaa", marginTop:2 }}>📍 {getFbContext()}</div>
+                  </div>
+                  <button onClick={() => { setFbOpen(false); setFbTag(null); setFbText(""); }}
+                    style={{ background:"none", border:"none", fontSize:20, cursor:"pointer", color:"#aaa" }}>✕</button>
+                </div>
+                {/* Tags */}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:14 }}>
+                  {["Bug","Wrong content","Audio issue","Didn't unlock","Missing words","Other"].map(t => (
+                    <button key={t} onClick={() => setFbTag(fbTag===t ? null : t)}
+                      style={{ padding:"6px 12px", borderRadius:20, border:"1.5px solid",
+                        borderColor: fbTag===t ? "#E8936A" : "#e0e0e0",
+                        background: fbTag===t ? "#E8936A22" : "#fff",
+                        color: fbTag===t ? "#E8936A" : "#666",
+                        fontSize:12, cursor:"pointer", fontFamily:"inherit", fontWeight: fbTag===t?"bold":"normal" }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                {/* Text */}
+                <textarea
+                  placeholder="What went wrong? (optional if you picked a tag)"
+                  value={fbText}
+                  onChange={e => setFbText(e.target.value)}
+                  style={{ width:"100%", padding:"10px 12px", fontSize:13, border:"1.5px solid #e0e0e0",
+                    borderRadius:10, fontFamily:"Georgia,serif", resize:"none", height:80,
+                    boxSizing:"border-box", marginBottom:12, outline:"none" }}
+                />
+                <button onClick={submitFeedback} disabled={fbSending || (!fbTag && !fbText.trim())}
+                  style={{ width:"100%", padding:13, background:(fbTag||fbText.trim())?"#E8936A":"#ccc",
+                    color:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:"bold",
+                    cursor:(fbTag||fbText.trim())?"pointer":"not-allowed", fontFamily:"inherit" }}>
+                  {fbSending ? "Sending..." : "Send Feedback →"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
