@@ -74,10 +74,157 @@ const SESSIONS = [
   },
 ];
 
-const ALL_VOCAB = SESSIONS.flatMap(s =>
-  s.vocab.map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}))
-);
-const ALL_MEANINGS     = ALL_VOCAB.map(v => v.meaning);
+// ─── BATCH SYSTEM ────────────────────────────────────────────────────────────
+// Each session has 3 batches of words. Batch 1 is always unlocked.
+// Batch 2 unlocks when 75%+ of batch 1 words are mastered in tests.
+// Batch 3 unlocks when 75%+ of batch 2 words are mastered in tests.
+// "Mastered" = correct >= 2 AND wrong === 0 in testProgress.
+
+// Extra vocab batches — added to each session
+const EXTRA_VOCAB = {
+  // ── SESSION 1: BABY TALK ────────────────────────────────────────────────
+  1: {
+    batch2:[
+      {id:"v1_9", egy:"بيبكي",    trans:"biyibki",    egyPron:"بيبكي",       meaning:"He is crying",              sentence:"البيبي بيبكي ليه؟",          sentTrans:"el-baby biyibki leih?",        sentMeaning:"Why is the baby crying?",           farsi:"گریه میکنه"},
+      {id:"v1_10",egy:"ضاحك",     trans:"daahek",     egyPron:"ضاحِك",       meaning:"Laughing / smiling",        sentence:"شوف البيبي ضاحك!",           sentTrans:"shoof el-baby daahek!",        sentMeaning:"Look, the baby is laughing!",       farsi:""},
+      {id:"v1_11",egy:"عمل إيه",  trans:"amal eih",   egyPron:"عَمَل إيه",   meaning:"What did he do?",           sentence:"البيبي عمل إيه دلوقتي؟",    sentTrans:"el-baby amal eih dilwaqti?",   sentMeaning:"What did the baby just do?",        farsi:""},
+      {id:"v1_12",egy:"اتقلب",    trans:"etaalleb",   egyPron:"اتقَلَّب",    meaning:"He rolled over",            sentence:"البيبي اتقلب لوحده!",        sentTrans:"el-baby etaalleb lewahdu!",    sentMeaning:"Baby rolled over by himself!",      farsi:""},
+      {id:"v1_13",egy:"شايل",     trans:"shaayel",    egyPron:"شايِل",       meaning:"Carrying / holding",        sentence:"أنا شايلاه",                 sentTrans:"ana shaaylah",                 sentMeaning:"I'm holding him",                   farsi:""},
+      {id:"v1_14",egy:"بيتكلم",   trans:"biyitkallim",egyPron:"بيتكَلِّم",   meaning:"Babbling / talking",        sentence:"البيبي بيتكلم أوي",          sentTrans:"el-baby biyitkallim awi",      sentMeaning:"Baby is babbling so much",          farsi:""},
+    ],
+    batch3:[
+      {id:"v1_15",egy:"سنانه",    trans:"sinanu",     egyPron:"سِنانه",      meaning:"His teeth / teething",      sentence:"البيبي بيطلع سنانه",         sentTrans:"el-baby biyitla sinanu",       sentMeaning:"Baby is teething",                  farsi:""},
+      {id:"v1_16",egy:"بيمشي",    trans:"biyimshi",   egyPron:"بيمشي",       meaning:"He is walking",             sentence:"البيبي بيمشي بقى!",          sentTrans:"el-baby biyimshi baqa!",       sentMeaning:"Baby is walking now!",              farsi:""},
+      {id:"v1_17",egy:"نظيف",     trans:"nadheef",    egyPron:"نَضيف",       meaning:"Clean",                     sentence:"البيبي نظيف دلوقتي",         sentTrans:"el-baby nadheef dilwaqti",     sentMeaning:"Baby is clean now",                 farsi:"نظیف in Farsi — same!"},
+      {id:"v1_18",egy:"وسخ",      trans:"wisikh",     egyPron:"وِسِخ",       meaning:"Dirty",                     sentence:"ده وسخ، غيّره",              sentTrans:"da wisikh ghayeru",            sentMeaning:"That's dirty, change it",           farsi:""},
+      {id:"v1_19",egy:"تقيل",     trans:"taqeel",     egyPron:"تَقيل",       meaning:"Heavy / deep sleep",        sentence:"نايم نوم تقيل",              sentTrans:"nayem nom taqeel",             sentMeaning:"Sleeping deeply",                   farsi:"سنگین — same idea"},
+      {id:"v1_20",egy:"فرحان",    trans:"farhan",     egyPron:"فَرحان",      meaning:"Happy / joyful",            sentence:"البيبي فرحان أوي النهارده",  sentTrans:"el-baby farhan awi en-naharda",sentMeaning:"Baby is so happy today",            farsi:"فرحان — مثل شاد"},
+    ],
+  },
+  // ── SESSION 2: HOME & DAILY LIFE ────────────────────────────────────────
+  2: {
+    batch2:[
+      {id:"v2_9", egy:"مش عارفة", trans:"mesh aarfa", egyPron:"مِش عارفة",   meaning:"I don't know (woman)",      sentence:"مش عارفة فين المفتاح",       sentTrans:"mesh aarfa fein el-muftah",    sentMeaning:"I don't know where the key is",     farsi:"نمیدونم"},
+      {id:"v2_10",egy:"فين",       trans:"fein",       egyPron:"فين",         meaning:"Where?",                    sentence:"فين الموبايل؟",               sentTrans:"fein el-mobile?",              sentMeaning:"Where's the phone?",                farsi:"کجا"},
+      {id:"v2_11",egy:"روح",       trans:"rooh",       egyPron:"روح",         meaning:"Go (command)",              sentence:"روح نام دلوقتي",              sentTrans:"rooh naam dilwaqti",           sentMeaning:"Go sleep right now",                farsi:"برو"},
+      {id:"v2_12",egy:"تعالى",     trans:"taala",      egyPron:"تَعالى",      meaning:"Come here",                 sentence:"تعالى هنا يا حبيبي",          sentTrans:"taala hena ya habibi",         sentMeaning:"Come here, my love",                farsi:"بیا"},
+      {id:"v2_13",egy:"لسه",       trans:"lessa",      egyPron:"لِسّه",       meaning:"Not yet / still",           sentence:"لسه صاحي؟",                   sentTrans:"lessa sahi?",                  sentMeaning:"Still awake?",                      farsi:"هنوز"},
+      {id:"v2_14",egy:"أهو",       trans:"aho",        egyPron:"أهو",         meaning:"There it is / here!",       sentence:"أهو جه!",                     sentTrans:"aho ge!",                      sentMeaning:"There he is! He came!",             farsi:""},
+    ],
+    batch3:[
+      {id:"v2_15",egy:"مين",       trans:"meen",       egyPron:"مين",         meaning:"Who?",                      sentence:"مين ده؟",                     sentTrans:"meen da?",                     sentMeaning:"Who is that?",                      farsi:"کیه؟"},
+      {id:"v2_16",egy:"إمتى",      trans:"emta",       egyPron:"إمتى",        meaning:"When?",                     sentence:"إمتى هترجع؟",                 sentTrans:"emta hatirga?",                sentMeaning:"When will you come back?",          farsi:"کِی؟"},
+      {id:"v2_17",egy:"ليه",       trans:"leih",       egyPron:"ليه",         meaning:"Why?",                      sentence:"ليه بيبكي؟",                  sentTrans:"leih biyibki?",                sentMeaning:"Why is he crying?",                 farsi:"چرا"},
+      {id:"v2_18",egy:"أيوه",      trans:"aywa",       egyPron:"أيوه",        meaning:"Yes",                       sentence:"أيوه، عارفة",                 sentTrans:"aywa aarfa",                   sentMeaning:"Yes, I know",                       farsi:"آره"},
+      {id:"v2_19",egy:"لأ",        trans:"la",         egyPron:"لأ",          meaning:"No",                        sentence:"لأ، مش دلوقتي",               sentTrans:"la mesh dilwaqti",             sentMeaning:"No, not right now",                 farsi:"نه"},
+      {id:"v2_20",egy:"ممكن",      trans:"mumkin",     egyPron:"مُمكِن",      meaning:"Can / possible / please",   sentence:"ممكن تساعدني؟",               sentTrans:"mumkin tisaaidni?",            sentMeaning:"Can you help me?",                  farsi:"ممکنه — same word!"},
+    ],
+  },
+  // ── SESSION 3: FEELINGS ─────────────────────────────────────────────────
+  3: {
+    batch2:[
+      {id:"v3_9", egy:"وحيدة",    trans:"wahiida",    egyPron:"وَحيدة",      meaning:"Lonely / alone (woman)",    sentence:"أنا حاسة إني وحيدة",          sentTrans:"ana hassa inni wahiida",       sentMeaning:"I feel lonely",                     farsi:"تنها"},
+      {id:"v3_10",egy:"خايفة",    trans:"khaayfa",    egyPron:"خايفة",       meaning:"Scared / worried (woman)",  sentence:"أنا خايفة عليه",              sentTrans:"ana khaayfa aleih",            sentMeaning:"I'm scared for him",                farsi:"میترسم"},
+      {id:"v3_11",egy:"زعّلتني",  trans:"zaaltni",    egyPron:"زَعَّلتني",   meaning:"You upset me",              sentence:"زعّلتني أوي",                 sentTrans:"zaaltni awi",                  sentMeaning:"You really upset me",               farsi:"ناراحتم کردی"},
+      {id:"v3_12",egy:"بحبك",     trans:"bahibbak",   egyPron:"بَحِبَّك",    meaning:"I love you (to him)",       sentence:"بحبك كتير",                   sentTrans:"bahibbak kteer",               sentMeaning:"I love you so much",                farsi:"دوستت دارم"},
+      {id:"v3_13",egy:"فرّحتني",  trans:"farrahtni",  egyPron:"فَرَّحتني",   meaning:"You made me happy",         sentence:"فرّحتني أوي يا حبيبي",        sentTrans:"farrahtni awi ya habibi",      sentMeaning:"You made me so happy",              farsi:""},
+      {id:"v3_14",egy:"حاسة",     trans:"hassa",      egyPron:"حاسّة",       meaning:"I feel / I sense (woman)",  sentence:"أنا حاسة إنه تعبان",          sentTrans:"ana hassa innu taaban",        sentMeaning:"I feel he's unwell",                farsi:"حس میکنم"},
+    ],
+    batch3:[
+      {id:"v3_15",egy:"مليش نفس", trans:"malish nafs",egyPron:"مَليش نَفس",  meaning:"I don't feel like it",      sentence:"مليش نفس دلوقتي",             sentTrans:"malish nafs dilwaqti",         sentMeaning:"I don't feel like it right now",    farsi:"حوصله ندارم"},
+      {id:"v3_16",egy:"محتاجة",   trans:"mehtaga",    egyPron:"مِحتاجة",     meaning:"I need (woman)",            sentence:"أنا محتاجة مساعدة",           sentTrans:"ana mehtaga mosaada",          sentMeaning:"I need help",                       farsi:"نیاز دارم"},
+      {id:"v3_17",egy:"ممنونة",   trans:"mamnona",    egyPron:"مَمنونة",     meaning:"Grateful / thankful (woman)",sentence:"أنا ممنونة منك أوي",          sentTrans:"ana mamnona mennak awi",       sentMeaning:"I'm so grateful to you",            farsi:"ممنونم — same word!"},
+      {id:"v3_18",egy:"خلاص زهقت",trans:"khalas zahaqt",egyPron:"خَلاص زِهِقت",meaning:"I'm completely done / fed up",sentence:"خلاص زهقت، هنام",          sentTrans:"khalas zahaqt hanaam",         sentMeaning:"I'm done, going to sleep",          farsi:""},
+      {id:"v3_19",egy:"فخورة",    trans:"fakhora",    egyPron:"فَخورة",      meaning:"Proud (woman)",             sentence:"أنا فخورة بيك يا بيبي",       sentTrans:"ana fakhora beek ya baby",     sentMeaning:"I'm proud of you, baby",            farsi:"افتخار میکنم"},
+      {id:"v3_20",egy:"مبسوطة",   trans:"mabsoota",   egyPron:"مَبسوطة",    meaning:"Happy / content (woman)",   sentence:"أنا مبسوطة جداً النهارده",    sentTrans:"ana mabsoota giddan en-naharda",sentMeaning:"I'm really happy today",           farsi:"مبسوط — same word!"},
+    ],
+  },
+  // ── SESSION 4: SHOPPING ─────────────────────────────────────────────────
+  4: {
+    batch2:[
+      {id:"v4_9", egy:"تاني",     trans:"taani",      egyPron:"تاني",        meaning:"Another / again",           sentence:"هات واحد تاني",               sentTrans:"haat wahid taani",             sentMeaning:"Bring another one",                 farsi:"یه دیگه"},
+      {id:"v4_10",egy:"ده",       trans:"da",         egyPron:"ده",          meaning:"This one (m)",              sentence:"ده بكام؟",                    sentTrans:"da bikaam?",                   sentMeaning:"How much is this?",                 farsi:"این"},
+      {id:"v4_11",egy:"دي",       trans:"di",         egyPron:"دي",          meaning:"This one (f)",              sentence:"دي أحسن",                     sentTrans:"di ahsan",                     sentMeaning:"This one is better",                farsi:"این"},
+      {id:"v4_12",egy:"أحسن",     trans:"ahsan",      egyPron:"أحسَن",       meaning:"Better / best",             sentence:"ده أحسن من ده",               sentTrans:"da ahsan men da",              sentMeaning:"This is better than that",          farsi:"بهتر"},
+      {id:"v4_13",egy:"مفيش",     trans:"mafeesh",    egyPron:"مَفيش",       meaning:"There isn't / none",        sentence:"مفيش تاني؟",                  sentTrans:"mafeesh taani?",               sentMeaning:"There's no other one?",             farsi:"نیست"},
+      {id:"v4_14",egy:"شكراً",    trans:"shukran",    egyPron:"شُكراً",      meaning:"Thank you",                 sentence:"شكراً جداً",                  sentTrans:"shukran giddan",               sentMeaning:"Thank you very much",               farsi:"ممنون — شکران in Farsi!"},
+    ],
+    batch3:[
+      {id:"v4_15",egy:"أرخص",     trans:"arkhas",     egyPron:"أرخَص",       meaning:"Cheaper",                   sentence:"مفيش أرخص من كده؟",           sentTrans:"mafeesh arkhas men keda?",     sentMeaning:"Nothing cheaper?",                  farsi:""},
+      {id:"v4_16",egy:"كتير",     trans:"kteer",      egyPron:"كِتير",       meaning:"A lot / many / too much",   sentence:"ده كتير أوي",                 sentTrans:"da kteer awi",                 sentMeaning:"That's way too much",               farsi:"کثیر — same word!"},
+      {id:"v4_17",egy:"واحد",     trans:"wahid",      egyPron:"واحِد",       meaning:"One",                       sentence:"واحد بس",                     sentTrans:"wahid bass",                   sentMeaning:"Just one",                          farsi:"واحد — same word!"},
+      {id:"v4_18",egy:"اتنين",    trans:"itneen",     egyPron:"اتنين",       meaning:"Two",                       sentence:"هات اتنين",                   sentTrans:"haat itneen",                  sentMeaning:"Give me two",                       farsi:"دو تا"},
+      {id:"v4_19",egy:"حسابي",    trans:"hsaabi",     egyPron:"حِسابي",      meaning:"My bill / the total",       sentence:"الحساب كام؟",                 sentTrans:"el-hsaab kaam?",               sentMeaning:"What's the total?",                 farsi:"حساب — same word!"},
+      {id:"v4_20",egy:"عندك",     trans:"andak",      egyPron:"عَندَك",      meaning:"Do you have? / you have",   sentence:"عندك مقاس تاني؟",             sentTrans:"andak meqas taani?",           sentMeaning:"Do you have another size?",          farsi:"داری؟"},
+    ],
+  },
+  // ── SESSION 5: WITH YOUR HUSBAND ────────────────────────────────────────
+  5: {
+    batch2:[
+      {id:"v5_9", egy:"حياتي",    trans:"hayaati",    egyPron:"حَياتي",      meaning:"My life (endearment)",      sentence:"إنت حياتي",                   sentTrans:"inta hayaati",                 sentMeaning:"You are my life",                   farsi:"زندگیمی"},
+      {id:"v5_10",egy:"روحي",     trans:"roohi",      egyPron:"روحي",        meaning:"My soul (endearment)",      sentence:"يلا يا روحي",                 sentTrans:"yalla ya roohi",               sentMeaning:"Come on, my soul",                  farsi:"جانم"},
+      {id:"v5_11",egy:"عيني",     trans:"eini",       egyPron:"عيني",        meaning:"My eye / my darling",       sentence:"تعالى يا عيني",               sentTrans:"taala ya eini",                sentMeaning:"Come here, my darling",             farsi:"چشمم"},
+      {id:"v5_12",egy:"نورت",     trans:"nawwart",    egyPron:"نَوَّرت",     meaning:"You lit up the place",      sentence:"نورت البيت",                  sentTrans:"nawwart el-beit",              sentMeaning:"You lit up the house (welcome!)",   farsi:""},
+      {id:"v5_13",egy:"صبر",      trans:"sabr",       egyPron:"صَبر",        meaning:"Patience",                  sentence:"محتاجة صبر شوية",             sentTrans:"mehtaga sabr shwayya",         sentMeaning:"I need a little patience",          farsi:"صبر — same word!"},
+      {id:"v5_14",egy:"قوم بقى",  trans:"oom baqa",   egyPron:"قوم بَقى",    meaning:"Get up already",            sentence:"قوم بقى، البيبي صاحي",        sentTrans:"oom baqa el-baby sahi",        sentMeaning:"Get up, baby is awake",             farsi:""},
+    ],
+    batch3:[
+      {id:"v5_15",egy:"حاجة حلوة",trans:"haaga helwa",egyPron:"حاجة حِلوة",  meaning:"Something nice",            sentence:"قوليلك حاجة حلوة",            sentTrans:"qollilak haaga helwa",         sentMeaning:"Let me tell you something nice",    farsi:""},
+      {id:"v5_16",egy:"فكرتني",   trans:"fakkartni",  egyPron:"فَكَّرتني",   meaning:"You reminded me",           sentence:"فكرتني بحاجة",                sentTrans:"fakkartni bihaaga",            sentMeaning:"You reminded me of something",      farsi:"یادم انداختی"},
+      {id:"v5_17",egy:"بفتكر",    trans:"biftikir",   egyPron:"بِفتِكِر",    meaning:"I think of / I remember",   sentence:"بفتكر فيك طول الوقت",         sentTrans:"biftikir feek tool el-waqt",   sentMeaning:"I think of you all the time",       farsi:"فکر میکنم"},
+      {id:"v5_18",egy:"ربنا يكرمك",trans:"rabbena yikrimak",egyPron:"رَبِّنا يِكرِمَك",meaning:"May God honor you",sentence:"ربنا يكرمك يا حبيبي",         sentTrans:"rabbena yikrimak ya habibi",   sentMeaning:"May God honor you, my love",        farsi:"خدا عزیزت کنه"},
+      {id:"v5_19",egy:"كلنا معاك",trans:"kullina maak",egyPron:"كُلِّنا مَعاك",meaning:"We're all with you",     sentence:"كلنا معاك يا حبيبي",          sentTrans:"kullina maak ya habibi",       sentMeaning:"We're all with you, my love",       farsi:"همه پیشتیم"},
+      {id:"v5_20",egy:"الحمد لله",trans:"el-hamdu lillah",egyPron:"الحَمدُ لِلّه",meaning:"Thank God / praise God",sentence:"الحمد لله على كل حاجة",      sentTrans:"el-hamdu lillah ala kull haaga",sentMeaning:"Thank God for everything",         farsi:"الحمدلله — same word!"},
+    ],
+  },
+};
+
+// Build full vocab per session including unlocked batches
+// unlockedBatches: { [sessionId]: 1|2|3 } — stored in progress
+function getSessionVocab(sessionId, unlockedBatch) {
+  const session = SESSIONS.find(s => s.id === sessionId);
+  const extra = EXTRA_VOCAB[sessionId];
+  const vocab = [...session.vocab]; // batch 1 always
+  if (unlockedBatch >= 2) vocab.push(...extra.batch2);
+  if (unlockedBatch >= 3) vocab.push(...extra.batch3);
+  return vocab;
+}
+
+// Check if a batch is ready to unlock based on testProgress
+// Returns the batch number the user has unlocked (1, 2, or 3)
+function calcUnlockedBatch(sessionId, testProgress) {
+  const session = SESSIONS.find(s => s.id === sessionId);
+  const extra = EXTRA_VOCAB[sessionId];
+  const THRESHOLD = 0.75;
+
+  // Check batch 1 → unlock batch 2?
+  const b1ids = session.vocab.map(v => v.id);
+  const b1mastered = b1ids.filter(id => {
+    const p = testProgress[id];
+    return p && (p.correct||0) >= 2 && (p.wrong||0) === 0;
+  }).length;
+  if (b1mastered / b1ids.length < THRESHOLD) return 1;
+
+  // Check batch 2 → unlock batch 3?
+  const b2ids = extra.batch2.map(v => v.id);
+  const b2mastered = b2ids.filter(id => {
+    const p = testProgress[id];
+    return p && (p.correct||0) >= 2 && (p.wrong||0) === 0;
+  }).length;
+  if (b2mastered / b2ids.length < THRESHOLD) return 2;
+
+  return 3;
+}
+
+const ALL_VOCAB = SESSIONS.flatMap(s => {
+  const extra = EXTRA_VOCAB[s.id];
+  return [
+    ...s.vocab,
+    ...extra.batch2,
+    ...extra.batch3,
+  ].map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}));
+});
+const ALL_MEANINGS      = ALL_VOCAB.map(v => v.meaning);
 const ALL_SENT_MEANINGS = ALL_VOCAB.map(v => v.sentMeaning);
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
@@ -455,17 +602,22 @@ function TestExCard({ item, onResult }) {
 }
 
 // ─── TEST SESSION ─────────────────────────────────────────────────────────────
-// All 40 words, 3 types, weighted by testProgress (wrong count). No consecutive repeats.
-function buildTestQueue(testProgress) {
+// Builds test queue from only unlocked words, weighted by testProgress.
+function buildTestQueue(testProgress, unlockedBatches) {
+  // Get only words that are currently unlocked
+  const unlockedVocab = SESSIONS.flatMap(s => {
+    const ub = (unlockedBatches && unlockedBatches[s.id]) || 1;
+    return getSessionVocab(s.id, ub).map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}));
+  });
+
   const types = ["word","sentence","reverse"];
   const weighted = [];
-  for (const v of ALL_VOCAB) {
+  for (const v of unlockedVocab) {
     const p = testProgress[v.id]||{};
     const w = !p.seen ? 3 : (p.wrong||0)>0 ? Math.min(p.wrong+2,4) : 1;
     for (let i=0;i<w;i++) weighted.push({vocabId:v.id, type:types[i%types.length]});
   }
   const sh = shuffle(weighted);
-  // Remove consecutive same vocabId
   const out = [];
   for (const item of sh) {
     if (!out.length||out[out.length-1].vocabId!==item.vocabId) out.push(item);
@@ -473,8 +625,8 @@ function buildTestQueue(testProgress) {
   return out.slice(0,12);
 }
 
-function TestSession({ testProgress, onComplete }) {
-  const [queue]   = useState(() => buildTestQueue(testProgress));
+function TestSession({ testProgress, unlockedBatches, onComplete }) {
+  const [queue] = useState(() => buildTestQueue(testProgress, unlockedBatches));
   const [idx,setIdx]         = useState(0);
   const [results,setResults] = useState([]);
   const [done,setDone]       = useState(false);
@@ -961,6 +1113,11 @@ export default function App() {
     }
     saveTestProgress(newTP);
 
+    // Recompute which batches are now unlocked based on new progress
+    const newUB = {};
+    [1,2,3,4,5].forEach(id => { newUB[id] = calcUnlockedBatch(id, newTP); });
+    setUnlockedBatches(newUB);
+
     // Update stats
     const correct = resArr.filter(r=>r.correct===true).length;
     const wrong   = resArr.filter(r=>r.correct===false).length;
@@ -1030,7 +1187,11 @@ export default function App() {
               </p>
               <p style={A.secLabel}>Sessions</p>
               {SESSIONS.map(s=>{
-                const flagged=s.vocab.filter(v=>learnFlags[v.id]).length;
+                const ub = unlockedBatches[s.id] || 1;
+                const currentVocab = getSessionVocab(s.id, ub);
+                const totalAvailable = getSessionVocab(s.id, 3).length; // 20
+                const flagged = currentVocab.filter(v=>learnFlags[v.id]).length;
+                const batchLabel = ub === 1 ? "Batch 1 of 3" : ub === 2 ? "Batch 2 of 3 unlocked! 🔓" : "All 3 batches unlocked! 🌟";
                 return (
                   <div key={s.id} onClick={()=>{setActiveLearnSession(s);setLearnMode("browse");setLearnDoneData(null);}}
                     style={{...A.row,borderLeft:`5px solid ${s.color}`}}>
@@ -1040,7 +1201,7 @@ export default function App() {
                         <span style={{fontWeight:"bold",fontSize:15}}>{s.title}</span>
                         {flagged>0&&<span style={{fontSize:12,color:"#dc3545"}}>🚩 {flagged} flagged</span>}
                       </div>
-                      <div style={{fontSize:12,color:"#aaa",marginTop:2}}>{s.vocab.length} words</div>
+                      <div style={{fontSize:12,color:"#aaa",marginTop:2}}>{currentVocab.length} / {totalAvailable} words · {batchLabel}</div>
                     </div>
                     <span style={{color:"#ccc",fontSize:20}}>›</span>
                   </div>
@@ -1063,7 +1224,7 @@ export default function App() {
                 <div style={{background:"#FFF8E7",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#666",lineHeight:1.7}}>
                   {activeLearnSession.tip}
                 </div>
-                {activeLearnSession.vocab.map((v,i)=>(
+                {getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id]).map((v,i)=>(
                   <VocabCard key={i} v={v} color={activeLearnSession.color} showTrans={showTrans} learnFlags={learnFlags}/>
                 ))}
                 <button onClick={()=>setLearnMode("quiz")}
@@ -1086,7 +1247,7 @@ export default function App() {
               </div>
               <LearnQuiz
                 key={activeLearnSession.id+"-"+Date.now()}
-                sessionVocab={activeLearnSession.vocab}
+                sessionVocab={getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id])}
                 sessionColor={activeLearnSession.color}
                 learnFlags={learnFlags}
                 onComplete={(results)=>{
@@ -1183,13 +1344,29 @@ export default function App() {
                 <div style={{fontSize:22,marginBottom:8}}>🧪</div>
                 <div style={{fontSize:16,fontWeight:"bold",marginBottom:6}}>Mixed Test</div>
                 <div style={{fontSize:13,color:"#555",lineHeight:1.7,marginBottom:14}}>
-                  All {ALL_VOCAB.length} words, mixed up. Three question types:
-                  <br/>• Arabic word → pick English meaning
-                  <br/>• Arabic sentence → pick sentence translation
-                  <br/>• English word → pick Arabic
-                  <br/><br/>
-                  Words you get wrong go to the <strong>Review</strong> tab for flashcard drilling.
-                  Words you keep getting right get promoted.
+                  Tests your <strong>unlocked words</strong> — 3 question types mixed.
+                  Master words to unlock the next batch in each session.
+                  Wrong answers go to <strong>Review</strong>.
+                </div>
+                <div style={{background:"#fff",borderRadius:10,padding:"10px 12px",marginBottom:14}}>
+                  <p style={{fontSize:11,fontWeight:"bold",color:"#aaa",margin:"0 0 8px",textTransform:"uppercase",letterSpacing:1}}>Batch Unlock Progress</p>
+                  {SESSIONS.map(s => {
+                    const ub = unlockedBatches[s.id] || 1;
+                    const current = getSessionVocab(s.id, ub).length;
+                    const total = getSessionVocab(s.id, 3).length;
+                    return (
+                      <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <span style={{fontSize:15}}>{s.emoji}</span>
+                        <div style={{flex:1}}>
+                          <div style={{background:"#f0f0f0",borderRadius:4,height:6,overflow:"hidden"}}>
+                            <div style={{background:s.color,height:"100%",width:`${(current/total)*100}%`,transition:"width 0.5s"}}/>
+                          </div>
+                        </div>
+                        <span style={{fontSize:11,color:"#555",whiteSpace:"nowrap"}}>{current}/{total}</span>
+                        <span style={{fontSize:11,whiteSpace:"nowrap",color:ub===3?"#28a745":"#bbb"}}>{ub===3?"✓ all":"🔒 batch "+ub}</span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <button onClick={()=>setTestRunning(true)} style={{...A.bigBtn,background:"#7B6FA0"}}>
                   Start Test →
@@ -1211,6 +1388,7 @@ export default function App() {
               <TestSession
                 key={"test-"+Date.now()}
                 testProgress={testProgress}
+                unlockedBatches={unlockedBatches}
                 onComplete={onTestComplete}
               />
             </>
