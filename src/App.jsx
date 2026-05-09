@@ -1092,6 +1092,19 @@ export default function App() {
   const [nameInput, setNameInput] = useState("");     // for the name entry screen
   const [syncing, setSyncing]     = useState(false);  // shows sync indicator
 
+  // Feedback widget state — must be at top, before any early returns
+  const [fbOpen, setFbOpen]       = useState(false);
+  const [fbTag, setFbTag]         = useState(null);
+  const [fbText, setFbText]       = useState("");
+  const [fbSent, setFbSent]       = useState(false);
+  const [fbSending, setFbSending] = useState(false);
+
+  // Today's Plan state — must be at top, before any early returns
+  const [plan, setPlan]           = useState([]);
+  const [planOpen, setPlanOpen]   = useState(true);
+  const [planNoteId, setPlanNoteId]   = useState(null);
+  const [planNoteText, setPlanNoteText] = useState("");
+
   // learnFlags: { [vocabId]: true } — mistakes in Learn tab, managed separately
   const [learnFlags, setLearnFlags] = useState({});
   // testProgress: { [vocabId]: {correct, wrong, seen} } — Test tab performance, feeds Review
@@ -1324,12 +1337,7 @@ export default function App() {
   const learnFlagCount = Object.keys(learnFlags).length;
   const reviewCount    = ALL_VOCAB.filter(v=>(testProgress[v.id]?.wrong||0)>0).length;
 
-  // ── FEEDBACK WIDGET STATE ──
-  const [fbOpen, setFbOpen]       = useState(false);
-  const [fbTag, setFbTag]         = useState(null);
-  const [fbText, setFbText]       = useState("");
-  const [fbSent, setFbSent]       = useState(false);
-  const [fbSending, setFbSending] = useState(false);
+  // ── FEEDBACK WIDGET STATE (moved to top) ──
 
   // Determine current context for feedback
   function getFbContext() {
@@ -1378,10 +1386,7 @@ export default function App() {
 
   // ── TODAY'S PLAN STATE ──
   // Plan items: { id, label, status: "pending"|"done"|"issue", note }
-  const [plan, setPlan] = useState([]);
-  const [planOpen, setPlanOpen] = useState(true);
-  const [planNoteId, setPlanNoteId] = useState(null);
-  const [planNoteText, setPlanNoteText] = useState("");
+  // ── TODAY'S PLAN STATE (moved to top) ──
 
   function updatePlanItem(id, status) {
     setPlan(p => p.map(item => item.id === id ? {...item, status} : item));
