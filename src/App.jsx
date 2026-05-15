@@ -1117,9 +1117,11 @@ export default function App() {
   const [activeLearnSession, setActiveLearnSession] = useState(null);
   const [learnMode, setLearnMode] = useState("browse"); // "browse" | "quiz" | "done"
   const [learnDoneData, setLearnDoneData] = useState(null);
+  const [learnSessionKey, setLearnSessionKey] = useState(0); // stable key for LearnQuiz
 
   // Test tab state
   const [testRunning, setTestRunning] = useState(false);
+  const [testSessionKey, setTestSessionKey] = useState(0); // stable key for TestSession
 
   // Helper to apply a progress blob to state
   function buildPlan(tp, lf, ub) {
@@ -1560,7 +1562,7 @@ export default function App() {
                 {getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id]).map((v,i)=>(
                   <VocabCard key={i} v={v} color={activeLearnSession.color} showTrans={showTrans} learnFlags={learnFlags}/>
                 ))}
-                <button onClick={()=>setLearnMode("quiz")}
+                <button onClick={()=>{ setLearnMode("quiz"); setLearnSessionKey(k=>k+1); }}}
                   style={{...A.bigBtn,background:activeLearnSession.color,marginTop:8}}>
                   Practice these words →
                 </button>
@@ -1579,7 +1581,7 @@ export default function App() {
                 <div style={{width:60}}/>
               </div>
               <LearnQuiz
-                key={activeLearnSession.id+"-"+Date.now()}
+                key={activeLearnSession.id+"-"+learnSessionKey}
                 sessionVocab={getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id])}
                 sessionColor={activeLearnSession.color}
                 learnFlags={learnFlags}
@@ -1702,7 +1704,7 @@ export default function App() {
                     );
                   })}
                 </div>
-                <button onClick={()=>setTestRunning(true)} style={{...A.bigBtn,background:"#7B6FA0"}}>
+                <button onClick={()=>{ setTestRunning(true); setTestSessionKey(k=>k+1); }} style={{...A.bigBtn,background:"#7B6FA0"}}>
                   Start Test →
                 </button>
               </div>
@@ -1720,7 +1722,7 @@ export default function App() {
                 <div style={{width:60}}/>
               </div>
               <TestSession
-                key={"test-"+Date.now()}
+                key={"test-"+testSessionKey}
                 testProgress={testProgress}
                 unlockedBatches={unlockedBatches}
                 onComplete={onTestComplete}
