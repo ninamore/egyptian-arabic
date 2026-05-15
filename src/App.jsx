@@ -333,7 +333,7 @@ function reverseOptions(correct)  { return shuffle([...shuffle(ALL_VOCAB.map(v=>
 // Shows: Arabic word + pronunciation + example sentence (Arabic, no translation)
 // Options: 4 English meanings
 // Mistakes → learnFlags[vocabId] = true; cleared on next correct answer
-function LearnQuiz({ sessionVocab, sessionColor, learnFlags, onComplete }) {
+function LearnQuiz({ sessionVocab, sessionColor, learnFlags, onComplete, fbOpen=false }) {
   // Exactly one question per word. Flagged words first, then unflagged. Both groups shuffled.
   const [queue] = useState(() => {
     const flagged   = shuffle(sessionVocab.filter(v =>  learnFlags[v.id]).map(v => v.id));
@@ -383,13 +383,14 @@ function LearnQuiz({ sessionVocab, sessionColor, learnFlags, onComplete }) {
           vocab={vocab}
           sessionColor={sessionColor}
           onResult={(correct) => handleResult(vocabId, correct)}
+          blocked={fbOpen}
         />
       </div>
     </div>
   );
 }
 
-function LearnExCard({ vocab, sessionColor, onResult }) {
+function LearnExCard({ vocab, sessionColor, onResult, blocked=false }) {
   const [chosen, setChosen]     = useState(null);   // selected option
   const [submitted, setSubmitted] = useState(false); // after Submit pressed
   const [options]               = useState(() => wordOptions(vocab.meaning));
@@ -485,18 +486,18 @@ function LearnExCard({ vocab, sessionColor, onResult }) {
       {/* Bottom buttons */}
       {!submitted ? (
         <div style={{display:"flex",gap:8,marginTop:14}}>
-          <button onClick={submit} disabled={!chosen}
-            style={{...X.btn, background: chosen ? sessionColor : "#ccc",
-              flex:2, cursor: chosen?"pointer":"not-allowed", opacity: chosen?1:0.6}}>
+          <button onClick={submit} disabled={!chosen||blocked}
+            style={{...X.btn, background: chosen&&!blocked ? sessionColor : "#ccc",
+              flex:2, cursor: chosen&&!blocked?"pointer":"not-allowed", opacity: chosen&&!blocked?1:0.6}}>
             Submit ✓
           </button>
-          <button onClick={() => onResult(null)}
+          <button onClick={() => onResult(null)} disabled={blocked}
             style={{...X.ghostBtn, flex:1}}>
             ⏭ Skip
           </button>
         </div>
       ) : (
-        <button onClick={next} style={{...X.btn, background:"#5B8FA8", width:"100%", marginTop:14}}>
+        <button onClick={next} disabled={blocked} style={{...X.btn, background:"#5B8FA8", width:"100%", marginTop:14}}>
           Next →
         </button>
       )}
@@ -505,7 +506,7 @@ function LearnExCard({ vocab, sessionColor, onResult }) {
 }
 
 // ─── TEST EXERCISE CARD (3 types, all 40 words) ───────────────────────────────
-function TestExCard({ item, onResult }) {
+function TestExCard({ item, onResult, blocked=false }) {
   const vocab   = ALL_VOCAB.find(v => v.id === item.vocabId);
   const type    = item.type;
   const correct = type==="word" ? vocab.meaning : type==="sentence" ? vocab.sentMeaning : vocab.egy;
@@ -632,15 +633,15 @@ function TestExCard({ item, onResult }) {
       {/* Submit / Next / Skip */}
       {!submitted ? (
         <div style={{display:"flex",gap:8,marginTop:14}}>
-          <button onClick={submit} disabled={!chosen}
-            style={{...X.btn, background: chosen ? "#7B6FA0" : "#ccc",
-              flex:2, cursor: chosen?"pointer":"not-allowed", opacity: chosen?1:0.6}}>
+          <button onClick={submit} disabled={!chosen||blocked}
+            style={{...X.btn, background: chosen&&!blocked ? "#7B6FA0" : "#ccc",
+              flex:2, cursor: chosen&&!blocked?"pointer":"not-allowed", opacity: chosen&&!blocked?1:0.6}}>
             Submit ✓
           </button>
-          <button onClick={() => onResult(null)} style={{...X.ghostBtn, flex:1}}>⏭ Skip</button>
+          <button onClick={() => onResult(null)} disabled={blocked} style={{...X.ghostBtn, flex:1}}>⏭ Skip</button>
         </div>
       ) : (
-        <button onClick={next} style={{...X.btn, background:"#5B8FA8", width:"100%", marginTop:14}}>
+        <button onClick={next} disabled={blocked} style={{...X.btn, background:"#5B8FA8", width:"100%", marginTop:14}}>
           Next →
         </button>
       )}
@@ -672,7 +673,7 @@ function buildTestQueue(testProgress, unlockedBatches) {
   return out.slice(0,12);
 }
 
-function TestSession({ testProgress, unlockedBatches, onComplete }) {
+function TestSession({ testProgress, unlockedBatches, onComplete, blocked=false }) {
   const [queue] = useState(() => buildTestQueue(testProgress, unlockedBatches));
   const [idx,setIdx]         = useState(0);
   const [results,setResults] = useState([]);
@@ -829,7 +830,7 @@ function TestSession({ testProgress, unlockedBatches, onComplete }) {
       </div>
       <div style={{padding:"0 16px"}}>
         <TestExCard key={`${idx}-${queue[idx].vocabId}-${queue[idx].type}`}
-          item={queue[idx]} onResult={handleResult}/>
+          item={queue[idx]} onResult={handleResult} blocked={blocked}/>
       </div>
     </div>
   );
@@ -1413,7 +1414,9 @@ export default function App() {
   }
 
   return (
-    <div style={A.wrap}>
+    <div style={A.wrap}
+      onKeyDown={fbOpen ? e => e.stopPropagation() : undefined}
+      onKeyUp={fbOpen ? e => e.stopPropagation() : undefined}>
       {/* Top bar */}
       <div style={A.topBar}>
         <div>
@@ -1580,6 +1583,7 @@ export default function App() {
                 sessionVocab={getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id])}
                 sessionColor={activeLearnSession.color}
                 learnFlags={learnFlags}
+                fbOpen={fbOpen}
                 onComplete={(results)=>{
                   onLearnComplete(results);
                   setLearnDoneData(results);
@@ -1720,6 +1724,7 @@ export default function App() {
                 testProgress={testProgress}
                 unlockedBatches={unlockedBatches}
                 onComplete={onTestComplete}
+                blocked={fbOpen}
               />
             </>
           )}
