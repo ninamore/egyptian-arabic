@@ -1123,8 +1123,10 @@ export default function App() {
   // Helper to apply a progress blob to state
   function buildPlan(tp, lf, ub) {
     const items = [];
-    const unseenCount = ALL_VOCAB.filter(v => { const p = (tp||{})[v.id]; return !p||!p.seen; }).length;
-    if (unseenCount > 0) items.push({id:"new_words", label:`Learn new words (${Math.min(unseenCount,6)} available)`, status:"pending", note:""});
+    // Only count unlocked words as "new" — not locked batch words
+    const unlockedVocab = SESSIONS.flatMap(s => getSessionVocab(s.id, (ub||{})[s.id]||1));
+    const unseenCount = unlockedVocab.filter(v => { const p = (tp||{})[v.id]; return !p||!p.seen; }).length;
+    if (unseenCount > 0) items.push({id:"new_words", label:`${unseenCount} word${unseenCount>1?"s":""} you haven't practiced yet`, status:"pending", note:""});
     const rc = ALL_VOCAB.filter(v=>((tp||{})[v.id]?.wrong||0)>0).length;
     if (rc > 0) items.push({id:"review", label:`Review ${rc} word${rc>1?"s":""} in Review tab`, status:"pending", note:""});
     const lfc = Object.keys(lf||{}).length;
@@ -1178,51 +1180,42 @@ export default function App() {
     init();
   }, []);
 
-  // Build current progress snapshot for saving
-  function buildSnapshot(overrides = {}) {
-    return {
-      learnFlags:   overrides.learnFlags   ?? learnFlags,
-      testProgress: overrides.testProgress ?? testProgress,
-      stats:        overrides.stats        ?? stats,
-    };
-  }
-
+  // Save helpers — each takes its own new value + reads latest others from state ref
+  // We pass all three explicitly to avoid stale closure issues with async React state
   function saveLearnFlags(flags) {
     setLearnFlags(flags);
-    const snap = buildSnapshot({ learnFlags: flags });
+    const snap = { learnFlags: flags, testProgress, stats };
     localSet("egy_progress_cache", snap);
     saveUserProgress(userId, snap);
   }
 
   function saveTestProgress(tp) {
     setTestProgress(tp);
-    const snap = buildSnapshot({ testProgress: tp });
+    const snap = { learnFlags, testProgress: tp, stats };
     localSet("egy_progress_cache", snap);
     saveUserProgress(userId, snap);
   }
 
   function saveStats(st) {
     setStats(st);
-    const snap = buildSnapshot({ stats: st });
+    const snap = { learnFlags, testProgress, stats: st };
     localSet("egy_progress_cache", snap);
     saveUserProgress(userId, snap);
   }
 
   // Called when a Learn quiz session ends
   function onLearnComplete(results) {
-    // results: [{id, correct}]
     const newFlags = {...learnFlags};
     for (const r of results) {
-      if (r.correct === null) continue; // skipped
-      if (r.correct === true) {
-        // Correct → remove flag
-        delete newFlags[r.id];
-      } else {
-        // Wrong → set flag
-        newFlags[r.id] = true;
-      }
+      if (r.correct === null) continue;
+      if (r.correct === true) delete newFlags[r.id];
+      else newFlags[r.id] = true;
     }
-    saveLearnFlags(newFlags);
+    setLearnFlags(newFlags);
+    // Atomic save — all fresh values
+    const snap = { learnFlags: newFlags, testProgress, stats };
+    localSet("egy_progress_cache", snap);
+    saveUserProgress(userId, snap);
   }
 
   // Called when a Test session ends
@@ -1238,7 +1231,7 @@ export default function App() {
         newTP[r.vocabId] = {correct:old.correct||0, wrong:(old.wrong||0)+1, seen:true};
       }
     }
-    saveTestProgress(newTP);
+    setTestProgress(newTP);
 
     // Recompute which batches are now unlocked based on new progress
     const newUB = {};
@@ -1250,10 +1243,10 @@ export default function App() {
     const wrong   = resArr.filter(r=>r.correct===false).length;
     const skipped = resArr.filter(r=>r.correct===null).length;
     const now     = new Date();
-    const today   = now.toLocaleDateString();
+    const today   = now.toISOString().slice(0,10);
     const time    = now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
     const last    = stats.lastPracticeDate;
-    const yesterday = new Date(Date.now()-86400000).toLocaleDateString();
+    const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
     const newStreak = last===today?stats.dayStreak:last===yesterday?(stats.dayStreak||0)+1:1;
     const newStats = {
       totalCorrect:(stats.totalCorrect||0)+correct,
@@ -1262,7 +1255,13 @@ export default function App() {
       lastPracticeDate:today,
       testHistory:[...(stats.testHistory||[]),{date:today,time,correct,wrong,skipped}].slice(-30),
     };
-    saveStats(newStats);
+    setStats(newStats);
+
+    // Single atomic save — all fresh values together, no stale state
+    const snap = { learnFlags, testProgress: newTP, stats: newStats };
+    localSet("egy_progress_cache", snap);
+    saveUserProgress(userId, snap);
+
     setTestRunning(false);
   }
 
@@ -1490,7 +1489,7 @@ export default function App() {
                               placeholder="What went wrong?"
                               value={planNoteText}
                               onChange={e=>setPlanNoteText(e.target.value)}
-                              onKeyDown={e=>e.key==="Enter"&&submitPlanNote(item.id)}
+                              onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")submitPlanNote(item.id);}}
                               style={{flex:1,padding:"8px 10px",fontSize:12,border:"1.5px solid #dc3545",
                                 borderRadius:8,fontFamily:"inherit",outline:"none",background:"#fff"}}
                             />
@@ -1806,6 +1805,8 @@ export default function App() {
                   placeholder="What went wrong? (optional if you picked a tag)"
                   value={fbText}
                   onChange={e => setFbText(e.target.value)}
+                  onKeyDown={e => e.stopPropagation()}
+                  onKeyUp={e => e.stopPropagation()}
                   style={{ width:"100%", padding:"10px 12px", fontSize:13, border:"1.5px solid #e0e0e0",
                     borderRadius:10, fontFamily:"Georgia,serif", resize:"none", height:80,
                     boxSizing:"border-box", marginBottom:12, outline:"none" }}
