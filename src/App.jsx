@@ -483,24 +483,27 @@ function LearnExCard({ vocab, sessionColor, onResult, blocked=false }) {
         </div>
       )}
 
-      {/* Bottom buttons */}
-      {!submitted ? (
-        <div style={{display:"flex",gap:8,marginTop:14}}>
-          <button onClick={submit} disabled={!chosen||blocked}
-            style={{...X.btn, background: chosen&&!blocked ? sessionColor : "#ccc",
-              flex:2, cursor: chosen&&!blocked?"pointer":"not-allowed", opacity: chosen&&!blocked?1:0.6}}>
-            Submit ✓
+      {/* Bottom buttons — Submit and Next occupy the exact same position */}
+      <div style={{display:"flex", gap:8, marginTop:14}}>
+        {!submitted ? (
+          <>
+            <button onClick={submit} disabled={!chosen||blocked}
+              style={{...X.btn, background: chosen&&!blocked ? sessionColor : "#ccc",
+                flex:2, cursor: chosen&&!blocked?"pointer":"not-allowed", opacity: chosen&&!blocked?1:0.6}}>
+              Submit ✓
+            </button>
+            <button onClick={() => onResult(null)} disabled={blocked}
+              style={{...X.ghostBtn, flex:1}}>
+              ⏭ Skip
+            </button>
+          </>
+        ) : (
+          <button onClick={next} disabled={blocked}
+            style={{...X.btn, background: isCorrect ? "#28a745" : "#5B8FA8", width:"100%"}}>
+            {isCorrect ? "✓ Next →" : "Next →"}
           </button>
-          <button onClick={() => onResult(null)} disabled={blocked}
-            style={{...X.ghostBtn, flex:1}}>
-            ⏭ Skip
-          </button>
-        </div>
-      ) : (
-        <button onClick={next} disabled={blocked} style={{...X.btn, background:"#5B8FA8", width:"100%", marginTop:14}}>
-          Next →
-        </button>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -630,21 +633,24 @@ function TestExCard({ item, onResult, blocked=false }) {
         </div>
       )}
 
-      {/* Submit / Next / Skip */}
-      {!submitted ? (
-        <div style={{display:"flex",gap:8,marginTop:14}}>
-          <button onClick={submit} disabled={!chosen||blocked}
-            style={{...X.btn, background: chosen&&!blocked ? "#7B6FA0" : "#ccc",
-              flex:2, cursor: chosen&&!blocked?"pointer":"not-allowed", opacity: chosen&&!blocked?1:0.6}}>
-            Submit ✓
+      {/* Submit / Next / Skip — same position, no finger movement */}
+      <div style={{display:"flex", gap:8, marginTop:14}}>
+        {!submitted ? (
+          <>
+            <button onClick={submit} disabled={!chosen||blocked}
+              style={{...X.btn, background: chosen&&!blocked ? "#7B6FA0" : "#ccc",
+                flex:2, cursor: chosen&&!blocked?"pointer":"not-allowed", opacity: chosen&&!blocked?1:0.6}}>
+              Submit ✓
+            </button>
+            <button onClick={() => onResult(null)} disabled={blocked} style={{...X.ghostBtn, flex:1}}>⏭ Skip</button>
+          </>
+        ) : (
+          <button onClick={next} disabled={blocked}
+            style={{...X.btn, background: isCorrect ? "#28a745" : "#5B8FA8", width:"100%"}}>
+            {isCorrect ? "✓ Next →" : "Next →"}
           </button>
-          <button onClick={() => onResult(null)} disabled={blocked} style={{...X.ghostBtn, flex:1}}>⏭ Skip</button>
-        </div>
-      ) : (
-        <button onClick={next} disabled={blocked} style={{...X.btn, background:"#5B8FA8", width:"100%", marginTop:14}}>
-          Next →
-        </button>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -1129,7 +1135,7 @@ export default function App() {
     // Only count unlocked words as "new" — not locked batch words
     const unlockedVocab = SESSIONS.flatMap(s => getSessionVocab(s.id, (ub||{})[s.id]||1));
     const unseenCount = unlockedVocab.filter(v => { const p = (tp||{})[v.id]; return !p||!p.seen; }).length;
-    if (unseenCount > 0) items.push({id:"new_words", label:`${unseenCount} word${unseenCount>1?"s":""} you haven't practiced yet`, status:"pending", note:""});
+    if (unseenCount > 0) items.push({id:"new_words", label:`📖 ${unseenCount} new word${unseenCount>1?"s":""} waiting in Learn tab (they'll appear in Test too)`, status:"pending", note:""});
     const rc = ALL_VOCAB.filter(v=>((tp||{})[v.id]?.wrong||0)>0).length;
     if (rc > 0) items.push({id:"review", label:`Review ${rc} word${rc>1?"s":""} in Review tab`, status:"pending", note:""});
     const lfc = Object.keys(lf||{}).length;
