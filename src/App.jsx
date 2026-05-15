@@ -483,24 +483,29 @@ function LearnExCard({ vocab, sessionColor, onResult, blocked=false }) {
         </div>
       )}
 
-      {/* Fixed-height button zone — Submit and Next in same position */}
-      <div style={{marginTop:14, minHeight:52}}>
-        {!submitted ? (
-          <div style={{display:"flex", gap:8}}>
-            <button onClick={submit} disabled={!chosen||blocked}
-              style={{...X.btn, background: chosen&&!blocked ? sessionColor : "#ccc",
-                flex:2, cursor: chosen&&!blocked?"pointer":"not-allowed", opacity: chosen&&!blocked?1:0.6}}>
-              Submit ✓
-            </button>
-            <button onClick={() => onResult(null)} disabled={blocked}
-              style={{...X.ghostBtn, flex:1}}>
-              ⏭ Skip
-            </button>
+      {/* Two-column button zone — positions never move */}
+      <div style={{display:"flex", gap:8, marginTop:14}}>
+        {/* Left: Submit → Next (same position) */}
+        <button onClick={submitted ? next : submit}
+          disabled={submitted ? blocked : (!chosen||blocked)}
+          style={{...X.btn, flex:2, margin:0,
+            background: submitted ? (isCorrect?"#28a745":"#5B8FA8") : (chosen&&!blocked?sessionColor:"#ccc"),
+            cursor: (submitted||chosen)&&!blocked?"pointer":"not-allowed",
+            opacity: (submitted||chosen)&&!blocked?1:0.6}}>
+          {submitted ? (isCorrect ? "✓ Next →" : "Next →") : "Submit ✓"}
+        </button>
+        {/* Right: Skip → Correct/Wrong feedback (same position) */}
+        {submitted ? (
+          <div style={{...X.ghostBtn, flex:1, textAlign:"center",
+            color: isCorrect?"#28a745":"#dc3545",
+            borderColor: isCorrect?"#28a745":"#dc3545",
+            fontWeight:"bold", display:"flex", alignItems:"center", justifyContent:"center"}}>
+            {isCorrect ? "✅" : "❌"}
           </div>
         ) : (
-          <button onClick={next} disabled={blocked}
-            style={{...X.btn, background: isCorrect ? "#28a745" : "#5B8FA8", width:"100%", margin:0}}>
-            {isCorrect ? "✓ Next →" : "Next →"}
+          <button onClick={() => onResult(null)} disabled={blocked}
+            style={{...X.ghostBtn, flex:1}}>
+            ⏭ Skip
           </button>
         )}
       </div>
@@ -633,26 +638,30 @@ function TestExCard({ item, onResult, blocked=false }) {
         </div>
       )}
 
-      {/* Fixed-height button zone — Submit and Next in same position */}
-      <div style={{marginTop:14, minHeight:52}}>
-        {!submitted ? (
-          <div style={{display:"flex", gap:8}}>
-            <button onClick={submit} disabled={!chosen||blocked}
-              style={{...X.btn, background: chosen&&!blocked ? "#7B6FA0" : "#ccc",
-                flex:2, cursor: chosen&&!blocked?"pointer":"not-allowed", opacity: chosen&&!blocked?1:0.6}}>
-              Submit ✓
-            </button>
-            <button onClick={() => onResult(null)} disabled={blocked} style={{...X.ghostBtn, flex:1}}>⏭ Skip</button>
+      {/* Two-column button zone — positions never move */}
+      <div style={{display:"flex", gap:8, marginTop:14}}>
+        {/* Left: Submit → Next (same position) */}
+        <button onClick={submitted ? next : submit}
+          disabled={submitted ? blocked : (!chosen||blocked)}
+          style={{...X.btn, flex:2, margin:0,
+            background: submitted ? (isCorrect?"#28a745":"#5B8FA8") : (chosen&&!blocked?"#7B6FA0":"#ccc"),
+            cursor: (submitted||chosen)&&!blocked?"pointer":"not-allowed",
+            opacity: (submitted||chosen)&&!blocked?1:0.6}}>
+          {submitted ? (isCorrect ? "✓ Next →" : "Next →") : "Submit ✓"}
+        </button>
+        {/* Right: Skip → Correct/Wrong feedback (same position) */}
+        {submitted ? (
+          <div style={{...X.ghostBtn, flex:1, textAlign:"center",
+            color: isCorrect?"#28a745":"#dc3545",
+            borderColor: isCorrect?"#28a745":"#dc3545",
+            fontWeight:"bold", display:"flex", alignItems:"center", justifyContent:"center"}}>
+            {isCorrect ? "✅" : "❌"}
           </div>
         ) : (
-          <button onClick={next} disabled={blocked}
-            style={{...X.btn, background: isCorrect ? "#28a745" : "#5B8FA8", width:"100%", margin:0}}>
-            {isCorrect ? "✓ Next →" : "Next →"}
-          </button>
+          <button onClick={() => onResult(null)} disabled={blocked}
+            style={{...X.ghostBtn, flex:1}}>⏭ Skip</button>
         )}
       </div>
-    </div>
-  );
 }
 
 // ─── TEST SESSION ─────────────────────────────────────────────────────────────
