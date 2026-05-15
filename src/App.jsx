@@ -1562,7 +1562,7 @@ export default function App() {
                 {getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id]).map((v,i)=>(
                   <VocabCard key={i} v={v} color={activeLearnSession.color} showTrans={showTrans} learnFlags={learnFlags}/>
                 ))}
-                <button onClick={()=>{ setLearnMode("quiz"); setLearnSessionKey(k=>k+1); }}}
+                <button onClick={()=>{ setLearnMode("quiz"); setLearnSessionKey(k=>k+1); }}
                   style={{...A.bigBtn,background:activeLearnSession.color,marginTop:8}}>
                   Practice these words →
                 </button>
