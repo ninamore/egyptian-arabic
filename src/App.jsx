@@ -1768,9 +1768,13 @@ export default function App() {
 
       {/* ── FEEDBACK SHEET ── */}
       {fbOpen && (
-        <div style={{ position:"fixed", inset:0, zIndex:1000, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"flex-end" }}
+        <div style={{ position:"fixed", inset:0, zIndex:1000, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"flex-end", touchAction:"none" }}
+          onTouchStart={e => e.stopPropagation()}
+          onPointerDown={e => e.stopPropagation()}
           onClick={e => { if(e.target === e.currentTarget) { setFbOpen(false); setFbTag(null); setFbText(""); }}}>
-          <div style={{ background:"#fff", borderRadius:"20px 20px 0 0", padding:"20px 20px 32px", width:"100%", maxWidth:430, margin:"0 auto" }}>
+          <div style={{ background:"#fff", borderRadius:"20px 20px 0 0", padding:"20px 20px 32px", width:"100%", maxWidth:430, margin:"0 auto" }}
+            onTouchStart={e => e.stopPropagation()}
+            onPointerDown={e => e.stopPropagation()}>
             {fbSent ? (
               <div style={{ textAlign:"center", padding:"20px 0" }}>
                 <div style={{ fontSize:40, marginBottom:10 }}>✅</div>
