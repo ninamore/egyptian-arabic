@@ -268,15 +268,16 @@ async function loadUserProgress(userId) {
 }
 
 // Save all progress for a user to Supabase
-// Strategy: always PATCH (update). If row doesn't exist yet, POST (insert).
+// Strategy: PATCH existing row, POST if no row exists yet.
 async function saveUserProgress(userId, data) {
   localSet("egy_user_id", userId);
   localSet("egy_progress_cache", data);
 
+  if (!userId) return; // safety guard
+
   const body = JSON.stringify({ data, updated_at: new Date().toISOString() });
 
   try {
-    // Try PATCH first — updates existing row matching user_id
     const patchRes = await fetch(
       `${SUPABASE_URL}/rest/v1/progress?user_id=eq.${encodeURIComponent(userId)}`,
       {
@@ -290,16 +291,12 @@ async function saveUserProgress(userId, data) {
         body,
       }
     );
-
-    console.log("[save] PATCH status:", patchRes.status);
-    const patchText = await patchRes.text();
-    console.log("[save] PATCH response:", patchText);
-
     if (patchRes.ok) {
+      const patchText = await patchRes.text();
       const patched = patchText ? JSON.parse(patchText) : [];
       if (Array.isArray(patched) && patched.length === 0) {
-        console.log("[save] No row found, trying POST insert...");
-        const postRes = await fetch(`${SUPABASE_URL}/rest/v1/progress`, {
+        // No existing row — insert
+        await fetch(`${SUPABASE_URL}/rest/v1/progress`, {
           method: "POST",
           headers: {
             "apikey": SUPABASE_KEY,
@@ -309,15 +306,10 @@ async function saveUserProgress(userId, data) {
           },
           body: JSON.stringify({ user_id: userId, data, updated_at: new Date().toISOString() }),
         });
-        console.log("[save] POST status:", postRes.status);
-      } else {
-        console.log("[save] PATCH updated", Array.isArray(patched)?patched.length:1, "row(s)");
       }
-    } else {
-      console.error("[save] PATCH failed:", patchRes.status, patchText);
     }
   } catch(e) {
-    console.error("[save] Exception:", e);
+    // Fail silently — local cache still works
   }
 }
 
