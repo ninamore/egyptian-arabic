@@ -662,6 +662,8 @@ function TestExCard({ item, onResult, blocked=false }) {
             style={{...X.ghostBtn, flex:1}}>⏭ Skip</button>
         )}
       </div>
+    </div>
+  );
 }
 
 // ─── TEST SESSION ─────────────────────────────────────────────────────────────
