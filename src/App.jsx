@@ -1123,6 +1123,7 @@ export default function App() {
   const [showTrans, setShowTrans] = useState(true);
   const [loading, setLoading]     = useState(true);
   const [userId, setUserId]       = useState(null);   // null = not set yet
+  const userIdRef = useRef(null);                       // ref for sync access in callbacks
   const [nameInput, setNameInput] = useState("");     // for the name entry screen
   const [syncing, setSyncing]     = useState(false);  // shows sync indicator
 
@@ -1199,6 +1200,7 @@ export default function App() {
       const savedId = localGet("egy_user_id");
       if (savedId) {
         setUserId(savedId);
+        userIdRef.current = savedId; // set ref immediately — don't wait for re-render
         // Load from local cache instantly so app feels fast
         const cached = localGet("egy_progress_cache");
         if (cached) applyProgress(cached);
@@ -1217,27 +1219,30 @@ export default function App() {
     init();
   }, []);
 
+  // Keep userIdRef in sync with userId state
+  useEffect(() => { userIdRef.current = userId; }, [userId]);
+
   // Save helpers — each takes its own new value + reads latest others from state ref
   // We pass all three explicitly to avoid stale closure issues with async React state
   function saveLearnFlags(flags) {
     setLearnFlags(flags);
     const snap = { learnFlags: flags, testProgress, stats };
     localSet("egy_progress_cache", snap);
-    saveUserProgress(userId, snap);
+    saveUserProgress(userIdRef.current, snap);
   }
 
   function saveTestProgress(tp) {
     setTestProgress(tp);
     const snap = { learnFlags, testProgress: tp, stats };
     localSet("egy_progress_cache", snap);
-    saveUserProgress(userId, snap);
+    saveUserProgress(userIdRef.current, snap);
   }
 
   function saveStats(st) {
     setStats(st);
     const snap = { learnFlags, testProgress, stats: st };
     localSet("egy_progress_cache", snap);
-    saveUserProgress(userId, snap);
+    saveUserProgress(userIdRef.current, snap);
   }
 
   // Called when a Learn quiz session ends
@@ -1252,7 +1257,7 @@ export default function App() {
     // Atomic save — all fresh values
     const snap = { learnFlags: newFlags, testProgress, stats };
     localSet("egy_progress_cache", snap);
-    saveUserProgress(userId, snap);
+    saveUserProgress(userIdRef.current, snap);
   }
 
   // Called when a Test session ends
@@ -1297,7 +1302,7 @@ export default function App() {
     // Single atomic save — all fresh values together, no stale state
     const snap = { learnFlags, testProgress: newTP, stats: newStats };
     localSet("egy_progress_cache", snap);
-    saveUserProgress(userId, snap);
+    saveUserProgress(userIdRef.current, snap);
 
     setTestRunning(false);
   }
@@ -1325,6 +1330,7 @@ export default function App() {
     if (existing) applyProgress(existing);
     localSet("egy_user_id", name);
     localSet("egy_progress_cache", existing || {});
+    userIdRef.current = name; // set ref immediately
     setUserId(name);
     setSyncing(false);
   }
