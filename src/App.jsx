@@ -275,36 +275,49 @@ async function saveUserProgress(userId, data) {
 
   const body = JSON.stringify({ data, updated_at: new Date().toISOString() });
 
-  // Try PATCH first — updates existing row matching user_id
-  const patchRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/progress?user_id=eq.${encodeURIComponent(userId)}`,
-    {
-      method: "PATCH",
-      headers: {
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "return=representation",
-      },
-      body,
-    }
-  );
-
-  if (patchRes.ok) {
-    const patched = await patchRes.json();
-    // If PATCH matched 0 rows, patched will be empty array — INSERT instead
-    if (Array.isArray(patched) && patched.length === 0) {
-      await fetch(`${SUPABASE_URL}/rest/v1/progress`, {
-        method: "POST",
+  try {
+    // Try PATCH first — updates existing row matching user_id
+    const patchRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/progress?user_id=eq.${encodeURIComponent(userId)}`,
+      {
+        method: "PATCH",
         headers: {
           "apikey": SUPABASE_KEY,
           "Authorization": `Bearer ${SUPABASE_KEY}`,
           "Content-Type": "application/json",
-          "Prefer": "return=minimal",
+          "Prefer": "return=representation",
         },
-        body: JSON.stringify({ user_id: userId, data, updated_at: new Date().toISOString() }),
-      });
+        body,
+      }
+    );
+
+    console.log("[save] PATCH status:", patchRes.status);
+    const patchText = await patchRes.text();
+    console.log("[save] PATCH response:", patchText);
+
+    if (patchRes.ok) {
+      const patched = patchText ? JSON.parse(patchText) : [];
+      if (Array.isArray(patched) && patched.length === 0) {
+        console.log("[save] No row found, trying POST insert...");
+        const postRes = await fetch(`${SUPABASE_URL}/rest/v1/progress`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+          },
+          body: JSON.stringify({ user_id: userId, data, updated_at: new Date().toISOString() }),
+        });
+        console.log("[save] POST status:", postRes.status);
+      } else {
+        console.log("[save] PATCH updated", Array.isArray(patched)?patched.length:1, "row(s)");
+      }
+    } else {
+      console.error("[save] PATCH failed:", patchRes.status, patchText);
     }
+  } catch(e) {
+    console.error("[save] Exception:", e);
   }
 }
 
