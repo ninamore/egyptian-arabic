@@ -267,21 +267,45 @@ async function loadUserProgress(userId) {
   return null;
 }
 
-// Save all progress for a user to Supabase (upsert)
+// Save all progress for a user to Supabase
+// Strategy: always PATCH (update). If row doesn't exist yet, POST (insert).
 async function saveUserProgress(userId, data) {
-  // Cache locally for instant loads
   localSet("egy_user_id", userId);
   localSet("egy_progress_cache", data);
 
-  await supabaseFetch("progress", {
-    method: "POST",
-    prefer: "resolution=merge-duplicates",
-    body: JSON.stringify({
-      user_id: userId,
-      data: data,
-      updated_at: new Date().toISOString(),
-    }),
-  });
+  const body = JSON.stringify({ data, updated_at: new Date().toISOString() });
+
+  // Try PATCH first — updates existing row matching user_id
+  const patchRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/progress?user_id=eq.${encodeURIComponent(userId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+      },
+      body,
+    }
+  );
+
+  if (patchRes.ok) {
+    const patched = await patchRes.json();
+    // If PATCH matched 0 rows, patched will be empty array — INSERT instead
+    if (Array.isArray(patched) && patched.length === 0) {
+      await fetch(`${SUPABASE_URL}/rest/v1/progress`, {
+        method: "POST",
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal",
+        },
+        body: JSON.stringify({ user_id: userId, data, updated_at: new Date().toISOString() }),
+      });
+    }
+  }
 }
 
 // ─── TTS ──────────────────────────────────────────────────────────────────────
@@ -1126,7 +1150,7 @@ export default function App() {
     // Only count unlocked words as "new" — not locked batch words
     const unlockedVocab = SESSIONS.flatMap(s => getSessionVocab(s.id, (ub||{})[s.id]||1));
     const unseenCount = unlockedVocab.filter(v => { const p = (tp||{})[v.id]; return !p||!p.seen; }).length;
-    if (unseenCount > 0) items.push({id:"new_words", label:`📖 ${unseenCount} new word${unseenCount>1?"s":""} waiting in Learn tab (they'll appear in Test too)`, status:"pending", note:""});
+    if (unseenCount > 0) items.push({id:"new_words", label:`🧪 ${unseenCount} word${unseenCount>1?"s":""} not yet tested — go to Test tab`, status:"pending", note:""});
     const rc = ALL_VOCAB.filter(v=>((tp||{})[v.id]?.wrong||0)>0).length;
     if (rc > 0) items.push({id:"review", label:`Review ${rc} word${rc>1?"s":""} in Review tab`, status:"pending", note:""});
     const lfc = Object.keys(lf||{}).length;
