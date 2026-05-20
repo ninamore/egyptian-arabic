@@ -1140,6 +1140,7 @@ export default function App() {
   const [testProgress, setTestProgress] = useState({});
   // stats: streak, accuracy, history
   const [stats, setStats] = useState({totalCorrect:0,totalWrong:0,dayStreak:0,lastPracticeDate:null,testHistory:[]});
+  const statsRef = useRef({totalCorrect:0,totalWrong:0,dayStreak:0,lastPracticeDate:null,testHistory:[]});
   const [unlockedBatches, setUnlockedBatches] = useState({1:1,2:1,3:1,4:1,5:1});
 
   // Learn tab state
@@ -1185,7 +1186,21 @@ export default function App() {
   function applyProgress(data) {
     if (!data) return;
     if (data.learnFlags) setLearnFlags(data.learnFlags);
-    if (data.stats) setStats(data.stats);
+    if (data.stats) {
+      // Migrate any old locale-format dates to ISO format
+      const st = {...data.stats};
+      if (st.lastPracticeDate && !st.lastPracticeDate.startsWith("20")) {
+        st.lastPracticeDate = null; // reset bad date — streak will rebuild from today
+      }
+      if (st.testHistory) {
+        st.testHistory = st.testHistory.map(h => ({
+          ...h,
+          date: h.date && h.date.startsWith("20") ? h.date : new Date(h.date).toISOString().slice(0,10)
+        }));
+      }
+      setStats(st);
+      statsRef.current = st;
+    }
     if (data.testProgress) {
       setTestProgress(data.testProgress);
       const ub = {};
@@ -1220,8 +1235,9 @@ export default function App() {
     init();
   }, []);
 
-  // Keep userIdRef in sync with userId state
+  // Keep refs in sync with state
   useEffect(() => { userIdRef.current = userId; }, [userId]);
+  useEffect(() => { statsRef.current = stats; }, [stats]);
 
   // isInSession: true when user is mid-test or mid-practice (not on browse/done screens)
   const isInSession = (testRunning) || (tab === "learn" && learnMode === "quiz");
@@ -1313,17 +1329,19 @@ export default function App() {
     const now     = new Date();
     const today   = now.toISOString().slice(0,10);
     const time    = now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-    const last    = stats.lastPracticeDate;
+    const currentStats = statsRef.current; // use ref — always current, no stale closure
+    const last    = currentStats.lastPracticeDate;
     const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
-    const newStreak = last===today?stats.dayStreak:last===yesterday?(stats.dayStreak||0)+1:1;
+    const newStreak = last===today?currentStats.dayStreak:last===yesterday?(currentStats.dayStreak||0)+1:1;
     const newStats = {
-      totalCorrect:(stats.totalCorrect||0)+correct,
-      totalWrong:(stats.totalWrong||0)+wrong,
+      totalCorrect:(currentStats.totalCorrect||0)+correct,
+      totalWrong:(currentStats.totalWrong||0)+wrong,
       dayStreak:newStreak,
       lastPracticeDate:today,
       testHistory:[...(stats.testHistory||[]),{date:today,time,correct,wrong,skipped}].slice(-30),
     };
     setStats(newStats);
+    statsRef.current = newStats; // update ref immediately
 
     // Single atomic save — all fresh values together, no stale state
     const snap = { learnFlags, testProgress: newTP, stats: newStats };
