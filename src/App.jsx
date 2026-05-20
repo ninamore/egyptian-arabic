@@ -1152,6 +1152,10 @@ export default function App() {
   const [testRunning, setTestRunning] = useState(false);
   const [testSessionKey, setTestSessionKey] = useState(0); // stable key for TestSession
 
+  // Exit confirmation dialog
+  const [exitConfirm, setExitConfirm]   = useState(false);  // show dialog?
+  const [exitAction, setExitAction]      = useState(null);   // fn to run if confirmed
+
   // Helper to apply a progress blob to state
   function buildPlan(tp, lf, ub) {
     const items = [];
@@ -1218,6 +1222,19 @@ export default function App() {
 
   // Keep userIdRef in sync with userId state
   useEffect(() => { userIdRef.current = userId; }, [userId]);
+
+  // isInSession: true when user is mid-test or mid-practice (not on browse/done screens)
+  const isInSession = (testRunning) || (tab === "learn" && learnMode === "quiz");
+
+  // Safe navigate — shows confirm dialog if mid-session, else navigates immediately
+  function safeNav(action) {
+    if (isInSession) {
+      setExitAction(() => action);
+      setExitConfirm(true);
+    } else {
+      action();
+    }
+  }
 
   // Called when a test question loads — marks word as seen immediately
   function onWordSeen(vocabId) {
@@ -1630,7 +1647,7 @@ export default function App() {
           {activeLearnSession && learnMode==="quiz" && (
             <>
               <div style={{...A.sHeader,background:activeLearnSession.color}}>
-                <button style={A.backBtn} onClick={()=>setLearnMode("browse")}>← Words</button>
+                <button style={A.backBtn} onClick={()=>safeNav(()=>setLearnMode("browse"))}>← Words</button>
                 <span style={{flex:1,textAlign:"center",fontSize:14,color:"rgba(255,255,255,0.9)"}}>
                   Practicing: {activeLearnSession.emoji} {activeLearnSession.title}
                 </span>
@@ -1773,7 +1790,7 @@ export default function App() {
           ) : (
             <>
               <div style={{...A.sHeader,background:"#7B6FA0"}}>
-                <button style={A.backBtn} onClick={()=>setTestRunning(false)}>← Back</button>
+                <button style={A.backBtn} onClick={()=>safeNav(()=>setTestRunning(false))}>← Back</button>
                 <span style={{flex:1,textAlign:"center",fontSize:14,color:"rgba(255,255,255,0.9)"}}>🧪 Mixed Test</span>
                 <div style={{width:60}}/>
               </div>
@@ -1815,6 +1832,36 @@ export default function App() {
       )}
 
       {/* ── FLOATING FEEDBACK BUTTON ── */}
+      {/* ── EXIT CONFIRMATION DIALOG ── */}
+      {exitConfirm && (
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.6)",
+          display:"flex",alignItems:"center",justifyContent:"center",padding:"0 24px"}}>
+          <div style={{background:"#fff",borderRadius:20,padding:"28px 24px",width:"100%",maxWidth:360,textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>⚠️</div>
+            <div style={{fontSize:18,fontWeight:"bold",marginBottom:8,color:"#2c2c2c"}}>Exit session?</div>
+            <div style={{fontSize:14,color:"#666",lineHeight:1.6,marginBottom:24}}>
+              Words you've already answered will be saved.<br/>
+              This session won't count toward your progress.
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setExitConfirm(false)}
+                style={{flex:1,padding:13,background:"#f0f0f0",border:"none",borderRadius:12,
+                  fontSize:15,cursor:"pointer",fontFamily:"inherit",fontWeight:"bold",color:"#555"}}>
+                Keep going
+              </button>
+              <button onClick={()=>{
+                  setExitConfirm(false);
+                  if (exitAction) { exitAction(); setExitAction(null); }
+                }}
+                style={{flex:1,padding:13,background:"#dc3545",border:"none",borderRadius:12,
+                  fontSize:15,cursor:"pointer",fontFamily:"inherit",fontWeight:"bold",color:"#fff"}}>
+                Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!fbOpen && (
         <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)",
           width:"100%", maxWidth:430, pointerEvents:"none", zIndex:999,
@@ -1895,7 +1942,7 @@ export default function App() {
         {NAV.map(t=>{
           const badge = t.id==="learn"?learnFlagCount:t.id==="review"?reviewCount:0;
           return (
-            <button key={t.id} onClick={()=>{setTab(t.id);setTestRunning(false);setActiveLearnSession(null);setLearnMode("browse");setLearnDoneData(null);}}
+            <button key={t.id} onClick={()=>safeNav(()=>{setTab(t.id);setTestRunning(false);setActiveLearnSession(null);setLearnMode("browse");setLearnDoneData(null);})}
               style={{...A.navBtn,color:tab===t.id?"#E8936A":"#aaa",position:"relative"}}>
               <span style={{fontSize:22}}>{t.icon}</span>
               {badge>0&&(
