@@ -1577,14 +1577,18 @@ export default function App() {
                 const currentVocab = getSessionVocab(s.id, ub);
                 const totalAvailable = getSessionVocab(s.id, 3).length; // 20
                 const flagged = currentVocab.filter(v=>learnFlags[v.id]).length;
+                const newCount = currentVocab.filter(v=>!testProgress[v.id]?.seen).length;
                 return (
                   <div key={s.id} onClick={()=>{setActiveLearnSession(s);setLearnMode("browse");setLearnDoneData(null);}}
                     style={{...A.row,borderLeft:`5px solid ${s.color}`}}>
                     <span style={{fontSize:26}}>{s.emoji}</span>
                     <div style={{flex:1}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
                         <span style={{fontWeight:"bold",fontSize:15}}>{s.title}</span>
-                        {flagged>0&&<span style={{fontSize:12,color:"#dc3545"}}>🚩 {flagged}</span>}
+                        <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                          {newCount>0&&<span style={{fontSize:10,background:"#E8936A",color:"#fff",padding:"2px 7px",borderRadius:20,fontWeight:"bold"}}>{newCount} new</span>}
+                          {flagged>0&&<span style={{fontSize:12,color:"#dc3545"}}>🚩 {flagged}</span>}
+                        </div>
                       </div>
                       <div style={{fontSize:12,color:"#aaa",marginTop:2}}>
                         {currentVocab.length} words{ub < 3 ? ` · 🔒 ${totalAvailable - currentVocab.length} more to unlock` : " · ✓ all unlocked"}
