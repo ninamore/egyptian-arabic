@@ -863,9 +863,10 @@ function TestSession({ testProgress, unlockedBatches, onComplete, blocked=false 
 }
 
 // ─── VOCAB CARD (Learn tab) ───────────────────────────────────────────────────
-function VocabCard({ v, color, showTrans, learnFlags }) {
+function VocabCard({ v, color, showTrans, learnFlags, testProgress }) {
   const [open,setOpen] = useState(false);
   const flagged = !!learnFlags[v.id];
+  const isNew   = !testProgress?.[v.id]?.seen;
   return (
     <div style={{background:"#fff",borderRadius:14,padding:"13px 15px",marginBottom:10,
       boxShadow:"0 2px 8px rgba(0,0,0,0.07)",
@@ -875,7 +876,8 @@ function VocabCard({ v, color, showTrans, learnFlags }) {
           <SpeakBtn text={v.egy} color={color}/>
           <span style={{fontSize:21,fontWeight:"bold",direction:"rtl"}}>{v.egy}</span>
           {showTrans&&<span style={{fontSize:12,color:"#bbb",fontStyle:"italic",whiteSpace:"nowrap"}}>{v.trans}</span>}
-          {flagged&&<span style={{fontSize:14,marginLeft:2}} title="Needs review">🚩</span>}
+          {isNew    &&<span style={{fontSize:10,background:"#E8936A",color:"#fff",padding:"1px 6px",borderRadius:20,fontWeight:"bold"}}>new</span>}
+          {flagged  &&<span style={{fontSize:14,marginLeft:2}} title="Needs review">🚩</span>}
         </div>
         <button onClick={()=>setOpen(o=>!o)}
           style={{background:"none",border:"none",fontSize:16,color:"#bbb",cursor:"pointer",flexShrink:0}}>
@@ -1156,7 +1158,10 @@ export default function App() {
     // Only count unlocked words as "new" — not locked batch words
     const unlockedVocab = SESSIONS.flatMap(s => getSessionVocab(s.id, (ub||{})[s.id]||1));
     const unseenCount = unlockedVocab.filter(v => { const p = (tp||{})[v.id]; return !p||!p.seen; }).length;
-    if (unseenCount > 0) items.push({id:"new_words", label:`🧪 ${unseenCount} word${unseenCount>1?"s":""} not yet tested — go to Test tab`, status:"pending", note:""});
+    if (unseenCount > 0) {
+      const wordList = unlockedVocab.filter(v => { const p=(tp||{})[v.id]; return !p||!p.seen; }).map(v=>v.egy).join(" · ");
+      items.push({id:"new_words", label:`🧪 ${unseenCount} word${unseenCount>1?"s":""} not yet tested`, sublabel:wordList, status:"pending", note:""});
+    }
     const rc = ALL_VOCAB.filter(v=>((tp||{})[v.id]?.wrong||0)>0).length;
     if (rc > 0) items.push({id:"review", label:`Review ${rc} word${rc>1?"s":""} in Review tab`, status:"pending", note:""});
     const lfc = Object.keys(lf||{}).length;
@@ -1213,6 +1218,18 @@ export default function App() {
 
   // Keep userIdRef in sync with userId state
   useEffect(() => { userIdRef.current = userId; }, [userId]);
+
+  // Called when a test question loads — marks word as seen immediately
+  function onWordSeen(vocabId) {
+    setTestProgress(prev => {
+      if (prev[vocabId]?.seen) return prev;
+      const updated = { ...prev, [vocabId]: { ...(prev[vocabId]||{correct:0,wrong:0}), seen:true } };
+      const snap = { learnFlags, testProgress: updated, stats };
+      localSet("egy_progress_cache", snap);
+      saveUserProgress(userIdRef.current, snap);
+      return updated;
+    });
+  }
 
   // Save helpers — each takes its own new value + reads latest others from state ref
   // We pass all three explicitly to avoid stale closure issues with async React state
@@ -1502,10 +1519,13 @@ export default function App() {
                     {plan.map(item => (
                       <div key={item.id} style={{marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,background:"#2c2c2c",borderRadius:10,padding:"10px 12px"}}>
-                          <div style={{flex:1,fontSize:13,color:item.status==="done"?"#28a745":item.status==="issue"?"#dc3545":"#ccc",
+                          <div style={{flex:1}}>
+                          <div style={{fontSize:13,color:item.status==="done"?"#28a745":item.status==="issue"?"#dc3545":"#ccc",
                             textDecoration:item.status==="done"?"line-through":"none"}}>
                             {item.label}
                           </div>
+                          {item.sublabel&&<div style={{fontSize:11,color:"#E8936A",marginTop:2,direction:"rtl",lineHeight:1.6}}>{item.sublabel}</div>}
+                        </div>
                           <div style={{display:"flex",gap:6}}>
                             <button onClick={()=>updatePlanItem(item.id, item.status==="done"?"pending":"done")}
                               style={{background:item.status==="done"?"#28a745":"#3d3d3d",border:"none",borderRadius:8,
@@ -1592,7 +1612,7 @@ export default function App() {
                   {activeLearnSession.tip}
                 </div>
                 {getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id]).map((v,i)=>(
-                  <VocabCard key={i} v={v} color={activeLearnSession.color} showTrans={showTrans} learnFlags={learnFlags}/>
+                  <VocabCard key={i} v={v} color={activeLearnSession.color} showTrans={showTrans} learnFlags={learnFlags} testProgress={testProgress}/>
                 ))}
                 <button onClick={()=>{ setLearnMode("quiz"); setLearnSessionKey(k=>k+1); }}
                   style={{...A.bigBtn,background:activeLearnSession.color,marginTop:8}}>
