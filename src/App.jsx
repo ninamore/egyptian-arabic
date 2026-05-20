@@ -1187,17 +1187,45 @@ export default function App() {
     if (!data) return;
     if (data.learnFlags) setLearnFlags(data.learnFlags);
     if (data.stats) {
-      // Migrate any old locale-format dates to ISO format
       const st = {...data.stats};
-      if (st.lastPracticeDate && !st.lastPracticeDate.startsWith("20")) {
-        st.lastPracticeDate = null; // reset bad date — streak will rebuild from today
-      }
+
+      // Migrate old locale-format dates to ISO
       if (st.testHistory) {
         st.testHistory = st.testHistory.map(h => ({
           ...h,
-          date: h.date && h.date.startsWith("20") ? h.date : new Date(h.date).toISOString().slice(0,10)
-        }));
+          date: h.date && h.date.match(/^\d{4}-/) ? h.date
+              : h.date ? new Date(h.date).toISOString().slice(0,10)
+              : null
+        })).filter(h => h.date);
       }
+
+      // Recalculate streak from history — don't trust stored value
+      // Get unique practice days sorted descending
+      const uniqueDays = [...new Set((st.testHistory||[]).map(h=>h.date))]
+        .sort((a,b) => b.localeCompare(a)); // most recent first
+
+      let streak = 0;
+      if (uniqueDays.length > 0) {
+        const today     = new Date().toISOString().slice(0,10);
+        const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+        // Start counting only if practiced today or yesterday
+        let cursor = uniqueDays[0];
+        if (cursor === today || cursor === yesterday) {
+          streak = 1;
+          for (let i = 1; i < uniqueDays.length; i++) {
+            const prev = new Date(new Date(cursor).getTime() - 86400000).toISOString().slice(0,10);
+            if (uniqueDays[i] === prev) {
+              streak++;
+              cursor = uniqueDays[i];
+            } else {
+              break; // gap found
+            }
+          }
+        }
+      }
+      st.dayStreak = streak;
+      st.lastPracticeDate = uniqueDays[0] || null;
+
       setStats(st);
       statsRef.current = st;
     }
