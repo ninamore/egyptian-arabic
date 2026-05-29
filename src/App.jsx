@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
+// Returns today's date as YYYY-MM-DD in LOCAL timezone (not UTC)
+// Using toISOString() gives UTC which can be wrong date for users in EST/PST evenings
+function localDateStr(date = new Date()) {
+  return date.getFullYear() + '-' +
+    String(date.getMonth()+1).padStart(2,'0') + '-' +
+    String(date.getDate()).padStart(2,'0');
+}
+
 const SESSIONS = [
   {
     id:1, title:"Baby Talk", arabicTitle:"كلام البيبي", emoji:"👶", color:"#E8936A",
@@ -70,6 +78,126 @@ const SESSIONS = [
       {id:"v5_6",egy:"بحبك",trans:"bahibbak",egyPron:"بَحِبَّك",meaning:"I love you (to him)",sentence:"بحبك كتير يا حبيبي",sentTrans:"bahibbak kteer ya habibi",sentMeaning:"I love you so much",farsi:"دوستت دارم"},
       {id:"v5_7",egy:"ساعدني",trans:"saaidni",egyPron:"ساعِدني",meaning:"Help me",sentence:"ممكن تساعدني؟",sentTrans:"mumkin tisaaidni?",sentMeaning:"Can you help me?",farsi:""},
       {id:"v5_8",egy:"زاكي",trans:"zaaki",egyPron:"زاكي",meaning:"Delicious / tasty",sentence:"الأكل زاكي أوي!",sentTrans:"el-akl zaaki awi!",sentMeaning:"The food is so delicious!",farsi:""},
+    ],
+  },
+  // ── SESSION 6: FRIENDS & SOCIAL ──────────────────────────────────────────
+  {
+    id:6, title:"Friends & Social", arabicTitle:"مع الأصحاب", emoji:"👫", color:"#E86A8A",
+    tip:"🔑 Egyptians love when foreigners try! بحاول أتعلم (I'm trying to learn) + a smile = instant friends.",
+    vocab:[
+      {id:"v6_1",egy:"أهلاً وسهلاً",trans:"ahlan wa sahlan",egyPron:"أهلاً وسَهلاً",meaning:"Welcome / hello (warm)",sentence:"أهلاً وسهلاً يا نينا!",sentTrans:"ahlan wa sahlan ya Nina!",sentMeaning:"Welcome, Nina!",farsi:"خوش اومدی — همین"},
+      {id:"v6_2",egy:"عامل إيه",trans:"aamel eih",egyPron:"عامِل إيه",meaning:"How are you doing? (to man)",sentence:"إزيك؟ عامل إيه؟",sentTrans:"izzayyak? aamel eih?",sentMeaning:"How are you? How are you doing?",farsi:"چطوری؟"},
+      {id:"v6_3",egy:"تمام الحمد لله",trans:"tamaam el-hamdu lillah",egyPron:"تَمام الحَمدُ لِلّه",meaning:"Fine, thank God",sentence:"عامل إيه؟ تمام الحمد لله",sentTrans:"aamel eih? tamaam el-hamdu lillah",sentMeaning:"How are you? Fine, thank God",farsi:"خوبم الحمدلله"},
+      {id:"v6_4",egy:"بحاول أتعلم",trans:"bahaawel ateaallem",egyPron:"بحاوِل أتعَلَّم",meaning:"I'm trying to learn",sentence:"أنا بحاول أتعلم عربي",sentTrans:"ana bahaawel ateaallem arabi",sentMeaning:"I'm trying to learn Arabic",farsi:"دارم یاد میگیرم"},
+      {id:"v6_5",egy:"لسه بتعلم",trans:"lessa biteaallem",egyPron:"لِسّه بِتعَلَّم",meaning:"Still learning",sentence:"أنا لسه بتعلم، معلش!",sentTrans:"ana lessa biteaallem, maalesh!",sentMeaning:"I'm still learning, sorry!",farsi:"هنوز دارم یاد میگیرم"},
+      {id:"v6_6",egy:"مش فاهمة",trans:"mesh fahma",egyPron:"مِش فاهمة",meaning:"I don't understand (woman)",sentence:"مش فاهمة، ممكن تعيد؟",sentTrans:"mesh fahma, mumkin teeid?",sentMeaning:"I don't understand, can you repeat?",farsi:"نمیفهمم"},
+      {id:"v6_7",egy:"بالأهبل",trans:"bil-ahbal",egyPron:"بالأهبَل",meaning:"Slowly please",sentence:"ممكن تتكلم بالأهبل؟",sentTrans:"mumkin titkallim bil-ahbal?",sentMeaning:"Can you speak slowly?",farsi:"آروم‌تر"},
+      {id:"v6_8",egy:"جامد",trans:"gaamid",egyPron:"جامِد",meaning:"Cool / awesome / great",sentence:"ده جامد أوي!",sentTrans:"da gaamid awi!",sentMeaning:"That's so cool!",farsi:"باحاله — مثل خفن"},
+    ],
+  },
+  // ── SESSION 7: DAILY CHIT-CHAT ────────────────────────────────────────────
+  {
+    id:7, title:"Daily Chit-chat", arabicTitle:"كلام يومي", emoji:"💭", color:"#6B9E78",
+    tip:"🔑 These filler words are what make you sound Egyptian. خلاص، يعني، بقى and طب are the secret sauce.",
+    vocab:[
+      {id:"v7_1",egy:"يعني",trans:"yaani",egyPron:"يَعني",meaning:"I mean / like / sort of",sentence:"يعني، مش عارفة",sentTrans:"yaani, mesh aarfa",sentMeaning:"I mean, I don't know",farsi:"یعنی — نفس کلمه!"},
+      {id:"v7_2",egy:"بقى",trans:"baqa",egyPron:"بَقى",meaning:"Then / so / already (filler)",sentence:"يلا بقى، قوم",sentTrans:"yalla baqa, oom",sentMeaning:"Come on then, get up",farsi:"دیگه — پس"},
+      {id:"v7_3",egy:"زي ما هو",trans:"zay ma huwwa",egyPron:"زَي ما هو",meaning:"As it is / like that",sentence:"سيبه زي ما هو",sentTrans:"seebuh zay ma huwwa",sentMeaning:"Leave it as it is",farsi:"همونطوری که هست"},
+      {id:"v7_4",egy:"مش كده",trans:"mesh keda",egyPron:"مِش كَده",meaning:"Isn't that right? / No?",sentence:"ده حلو، مش كده؟",sentTrans:"da helw, mesh keda?",sentMeaning:"That's nice, isn't it?",farsi:"نه؟ — مگه نه؟"},
+      {id:"v7_5",egy:"طبعاً",trans:"tabaan",egyPron:"طَبعاً",meaning:"Of course",sentence:"طبعاً أنا موافقة",sentTrans:"tabaan ana muwafqa",sentMeaning:"Of course I agree",farsi:"طبیعتاً — البته"},
+      {id:"v7_6",egy:"ممتاز",trans:"mumtaaz",egyPron:"مُمتاز",meaning:"Excellent / perfect",sentence:"ممتاز، كده تمام",sentTrans:"mumtaaz, keda tamaam",sentMeaning:"Excellent, that's perfect",farsi:"ممتاز — نفس کلمه!"},
+      {id:"v7_7",egy:"يسلم",trans:"yislem",egyPron:"يِسلَم",meaning:"Bless you / thanks (casual)",sentence:"يسلم إيديك على الأكل",sentTrans:"yislem eideik ala el-akl",sentMeaning:"Bless your hands for the food",farsi:""},
+      {id:"v7_8",egy:"سيبني",trans:"seebni",egyPron:"سيبني",meaning:"Leave me alone / let me be",sentence:"سيبني أنا تعبانة",sentTrans:"seebni ana taabana",sentMeaning:"Leave me alone, I'm tired",farsi:"ولم کن"},
+    ],
+  },
+  // ── SESSION 8: FOOD & EATING ──────────────────────────────────────────────
+  {
+    id:8, title:"Food & Eating", arabicTitle:"الأكل والشرب", emoji:"🍽️", color:"#C4873A",
+    tip:"🔑 الأكل زاكي (the food is delicious) + يسلم إيديك (bless your hands) = Egyptian husband's love language.",
+    vocab:[
+      {id:"v8_1",egy:"عايزة تاكل",trans:"aayza taakul",egyPron:"عايزة تاكِل",meaning:"Do you want to eat?",sentence:"عايزة تاكل إيه النهارده؟",sentTrans:"aayza taakul eih en-naharda?",sentMeaning:"What do you want to eat today?",farsi:"میخوای بخوری؟"},
+      {id:"v8_2",egy:"جوعان / جوعانة",trans:"gawaan / gawaana",egyPron:"جوعان / جوعانة",meaning:"Hungry (m/f)",sentence:"أنا جوعانة أوي",sentTrans:"ana gawaana awi",sentMeaning:"I'm very hungry",farsi:"گرسنه‌ام"},
+      {id:"v8_3",egy:"عطشان",trans:"atshaan",egyPron:"عَطشان",meaning:"Thirsty",sentence:"عطشان؟ هات مية",sentTrans:"atshaan? haat mayya",sentMeaning:"Thirsty? Get some water",farsi:"تشنه‌ام"},
+      {id:"v8_4",egy:"مية",trans:"mayya",egyPron:"مَيّة",meaning:"Water",sentence:"هات مية بارده",sentTrans:"haat mayya barda",sentMeaning:"Bring cold water",farsi:"آب"},
+      {id:"v8_5",egy:"عيش",trans:"eish",egyPron:"عيش",meaning:"Bread",sentence:"فيه عيش؟",sentTrans:"feeh eish?",sentMeaning:"Is there bread?",farsi:"نون"},
+      {id:"v8_6",egy:"حاجة ساقعة",trans:"haaga saqa",egyPron:"حاجة ساقِعة",meaning:"Something cold (drink)",sentence:"عايزة حاجة ساقعة",sentTrans:"aayza haaga saqa",sentMeaning:"I want something cold",farsi:""},
+      {id:"v8_7",egy:"لذيذ",trans:"laziiz",egyPron:"لَذيذ",meaning:"Delicious / tasty",sentence:"الأكل لذيذ أوي",sentTrans:"el-akl laziiz awi",sentMeaning:"The food is very delicious",farsi:"لذیذ — نفس کلمه!"},
+      {id:"v8_8",egy:"شبعان / شبعانة",trans:"shaban / shabaana",egyPron:"شَبعان / شَبعانة",meaning:"Full / satisfied (m/f)",sentence:"لا شكراً، أنا شبعانة",sentTrans:"la shukran, ana shabaana",sentMeaning:"No thank you, I'm full",farsi:"سیرم"},
+    ],
+  },
+  // ── SESSION 9: COLORS & SHAPES ────────────────────────────────────────────
+  {
+    id:9, title:"Colors & Shapes", arabicTitle:"الألوان والأشكال", emoji:"🎨", color:"#9B6BB5",
+    tip:"🔑 Colors are great baby talk! إيه اللون ده؟ (what color is this?) is one of the first things babies learn.",
+    vocab:[
+      {id:"v9_1",egy:"أحمر",trans:"ahmar",egyPron:"أحمَر",meaning:"Red",sentence:"الكرة دي حمرا",sentTrans:"el-kora di hamra",sentMeaning:"This ball is red",farsi:"قرمز"},
+      {id:"v9_2",egy:"أزرق",trans:"azraq",egyPron:"أزرَق",meaning:"Blue",sentence:"السما زرقا",sentTrans:"el-sama zar'a",sentMeaning:"The sky is blue",farsi:"آبی"},
+      {id:"v9_3",egy:"أصفر",trans:"asfar",egyPron:"أصفَر",meaning:"Yellow",sentence:"الشمس صفرا",sentTrans:"el-shams safra",sentMeaning:"The sun is yellow",farsi:"زرد"},
+      {id:"v9_4",egy:"أخضر",trans:"akhdar",egyPron:"أخضَر",meaning:"Green",sentence:"العشب أخضر",sentTrans:"el-ushb akhdar",sentMeaning:"The grass is green",farsi:"سبز"},
+      {id:"v9_5",egy:"أبيض",trans:"abyad",egyPron:"أبيَض",meaning:"White",sentence:"لبسه أبيض",sentTrans:"libiisu abyad",sentMeaning:"His clothes are white",farsi:"سفید"},
+      {id:"v9_6",egy:"أسود",trans:"aswad",egyPron:"أسوَد",meaning:"Black",sentence:"الشعر أسود",sentTrans:"el-shaar aswad",sentMeaning:"The hair is black",farsi:"مشکی"},
+      {id:"v9_7",egy:"بردقاني",trans:"burtuqaani",egyPron:"بُردُقاني",meaning:"Orange (color)",sentence:"اللون البردقاني جميل",sentTrans:"el-loon el-burtuqaani gameel",sentMeaning:"The orange color is beautiful",farsi:"نارنجی"},
+      {id:"v9_8",egy:"إيه اللون ده",trans:"eih el-loon da",egyPron:"إيه اللون ده",meaning:"What color is this?",sentence:"إيه اللون ده يا بيبي؟",sentTrans:"eih el-loon da ya baby?",sentMeaning:"What color is this, baby?",farsi:"این چه رنگیه؟"},
+    ],
+  },
+  // ── SESSION 10: ANIMALS ───────────────────────────────────────────────────
+  {
+    id:10, title:"Animals", arabicTitle:"الحيوانات", emoji:"🐾", color:"#5B8A6E",
+    tip:"🔑 Animal sounds in Arabic are different! A cat says مياو (miyaaw) but a dog says هاو هاو (haw haw). Great for baby play!",
+    vocab:[
+      {id:"v10_1",egy:"قطة",trans:"otta",egyPron:"قِطّة",meaning:"Cat",sentence:"شوف القطة يا بيبي",sentTrans:"shoof el-otta ya baby",sentMeaning:"Look at the cat, baby",farsi:"گربه"},
+      {id:"v10_2",egy:"كلب",trans:"kalb",egyPron:"كَلب",meaning:"Dog",sentence:"الكلب بيقول هاو هاو",sentTrans:"el-kalb biyool haw haw",sentMeaning:"The dog says woof woof",farsi:"سگ"},
+      {id:"v10_3",egy:"عصفور",trans:"asfoor",egyPron:"عُصفور",meaning:"Bird",sentence:"شوف العصفور بيطير",sentTrans:"shoof el-asfoor biytiir",sentMeaning:"Look at the bird flying",farsi:"پرنده"},
+      {id:"v10_4",egy:"سمكة",trans:"samaka",egyPron:"سَمَكة",meaning:"Fish",sentence:"السمكة بتعوم",sentTrans:"el-samaka bitetoom",sentMeaning:"The fish is swimming",farsi:"ماهی"},
+      {id:"v10_5",egy:"فرس",trans:"faras",egyPron:"فَرَس",meaning:"Horse",sentence:"الفرس بيجري",sentTrans:"el-faras biyigri",sentMeaning:"The horse is running",farsi:"اسب"},
+      {id:"v10_6",egy:"بطة",trans:"batta",egyPron:"بَطّة",meaning:"Duck",sentence:"البطة بتقول واك",sentTrans:"el-batta bitool waak",sentMeaning:"The duck says quack",farsi:"اردک"},
+      {id:"v10_7",egy:"أسد",trans:"asad",egyPron:"أسَد",meaning:"Lion",sentence:"الأسد بيقول آآآ",sentTrans:"el-asad biyool aaa",sentMeaning:"The lion roars",farsi:"شیر — اسد in Arabic"},
+      {id:"v10_8",egy:"فيل",trans:"feel",egyPron:"فيل",meaning:"Elephant",sentence:"الفيل كبير أوي",sentTrans:"el-feel kibiir awi",sentMeaning:"The elephant is very big",farsi:"فیل — نفس کلمه!"},
+    ],
+  },
+  // ── SESSION 11: AROUND THE HOUSE ─────────────────────────────────────────
+  {
+    id:11, title:"Around the House", arabicTitle:"في البيت", emoji:"🏡", color:"#7A8FA6",
+    tip:"🔑 فين (where is) + any room/object = you can find anything in the house. فين الريموت؟ will get you far.",
+    vocab:[
+      {id:"v11_1",egy:"أوضة النوم",trans:"oodit en-noom",egyPron:"أوضة النوم",meaning:"Bedroom",sentence:"البيبي في أوضة النوم",sentTrans:"el-baby fi oodit en-noom",sentMeaning:"The baby is in the bedroom",farsi:"اتاق خواب"},
+      {id:"v11_2",egy:"الصالة",trans:"el-saala",egyPron:"الصالة",meaning:"Living room",sentence:"إحنا في الصالة",sentTrans:"ihna fi el-saala",sentMeaning:"We're in the living room",farsi:"پذیرایی"},
+      {id:"v11_3",egy:"الشباك",trans:"el-shubbaak",egyPron:"الشُبّاك",meaning:"Window",sentence:"افتح الشباك",sentTrans:"iftah el-shubbaak",sentMeaning:"Open the window",farsi:"پنجره"},
+      {id:"v11_4",egy:"الباب",trans:"el-baab",egyPron:"الباب",meaning:"The door",sentence:"افتح الباب من فضلك",sentTrans:"iftah el-baab men fadlak",sentMeaning:"Open the door please",farsi:"در — باب in Farsi!"},
+      {id:"v11_5",egy:"النور",trans:"en-noor",egyPron:"النور",meaning:"The light",sentence:"ودي النور",sentTrans:"waddi en-noor",sentMeaning:"Turn off the light",farsi:"نور — نفس کلمه!"},
+      {id:"v11_6",egy:"الريموت",trans:"el-reemoot",egyPron:"الريموت",meaning:"The remote control",sentence:"فين الريموت؟",sentTrans:"fein el-reemoot?",sentMeaning:"Where's the remote?",farsi:"ریموت کنترل"},
+      {id:"v11_7",egy:"المفتاح",trans:"el-muftaah",egyPron:"المُفتاح",meaning:"The key",sentence:"مش لاقية المفتاح",sentTrans:"mesh laaya el-muftaah",sentMeaning:"I can't find the key",farsi:"کلید"},
+      {id:"v11_8",egy:"الموبايل",trans:"el-mobaail",egyPron:"الموبايل",meaning:"The mobile phone",sentence:"فين الموبايل؟",sentTrans:"fein el-mobaail?",sentMeaning:"Where's the phone?",farsi:"موبایل — نفس کلمه!"},
+    ],
+  },
+  // ── SESSION 12: FAMILY & PEOPLE ──────────────────────────────────────────
+  {
+    id:12, title:"Family & People", arabicTitle:"الناس والعيلة", emoji:"👨‍👩‍👧", color:"#B5734A",
+    tip:"🔑 Egyptians are family-oriented. ربنا يحفظهم (may God protect them) is a beautiful response when someone asks about your family.",
+    vocab:[
+      {id:"v12_1",egy:"الأهل",trans:"el-ahl",egyPron:"الأهل",meaning:"The family",sentence:"الأهل بخير إن شاء الله",sentTrans:"el-ahl bikheer inshallah",sentMeaning:"The family is well, God willing",farsi:"خانواده — اهل in Farsi!"},
+      {id:"v12_2",egy:"أمي",trans:"ommi",egyPron:"أُمّي",meaning:"My mother",sentence:"أمي بتحبك أوي",sentTrans:"ommi bithibbak awi",sentMeaning:"My mother loves you a lot",farsi:"مامانم"},
+      {id:"v12_3",egy:"أبويا",trans:"abuuya",egyPron:"أبويا",meaning:"My father",sentence:"أبويا راح الشغل",sentTrans:"abuuya raah el-shughl",sentMeaning:"My father went to work",farsi:"بابام"},
+      {id:"v12_4",egy:"أخويا",trans:"akhuwwya",egyPron:"أخويا",meaning:"My brother",sentence:"أخويا في أمريكا",sentTrans:"akhuwwya fi amreeka",sentMeaning:"My brother is in America",farsi:"داداشم"},
+      {id:"v12_5",egy:"أختي",trans:"ukhti",egyPron:"أُختي",meaning:"My sister",sentence:"أختي جاية الأسبوع ده",sentTrans:"ukhti gaya el-usboo da",sentMeaning:"My sister is coming this week",farsi:"خواهرم"},
+      {id:"v12_6",egy:"جوزي",trans:"gawzi",egyPron:"جَوزي",meaning:"My husband",sentence:"جوزي بيحبني أوي",sentTrans:"gawzi biyhibbni awi",sentMeaning:"My husband loves me a lot",farsi:"شوهرم"},
+      {id:"v12_7",egy:"بنتي",trans:"binti",egyPron:"بِنتي",meaning:"My daughter",sentence:"بنتي حلوة أوي",sentTrans:"binti helwa awi",sentMeaning:"My daughter is so cute",farsi:"دخترم"},
+      {id:"v12_8",egy:"ابني",trans:"ibni",egyPron:"اِبني",meaning:"My son",sentence:"ابني نايم دلوقتي",sentTrans:"ibni nayem dilwaqti",sentMeaning:"My son is sleeping now",farsi:"پسرم"},
+    ],
+  },
+  // ── SESSION 13: TIME & ROUTINE ────────────────────────────────────────────
+  {
+    id:13, title:"Time & Routine", arabicTitle:"الوقت والروتين", emoji:"⏰", color:"#4A7A9B",
+    tip:"🔑 Egyptians run on their own time — بعدين (later) and شوية (a bit) are very flexible concepts. Embrace it!",
+    vocab:[
+      {id:"v13_1",egy:"الصبح",trans:"el-subh",egyPron:"الصُبح",meaning:"The morning",sentence:"صبح الخير، نمتي كويس؟",sentTrans:"subh el-kheer, nimti kwayyes?",sentMeaning:"Good morning, did you sleep well?",farsi:"صبح"},
+      {id:"v13_2",egy:"الضهر",trans:"el-duhr",egyPron:"الضُهر",meaning:"Noon / afternoon",sentence:"هنتغدى الضهر",sentTrans:"hanitaghadda el-duhr",sentMeaning:"We'll have lunch at noon",farsi:"ظهر — ضهر in Egyptian"},
+      {id:"v13_3",egy:"الليل",trans:"el-leil",egyPron:"الليل",meaning:"The night",sentence:"تصبح على خير يا بيبي",sentTrans:"tisbah ala kheer ya baby",sentMeaning:"Good night, baby",farsi:"شب"},
+      {id:"v13_4",egy:"دلوقتي",trans:"dilwaqti",egyPron:"دِلوَقتي",meaning:"Right now",sentence:"مش دلوقتي، بعدين",sentTrans:"mesh dilwaqti, baadein",sentMeaning:"Not right now, later",farsi:"الآن — الان"},
+      {id:"v13_5",egy:"بعدين",trans:"baadein",egyPron:"بَعدين",meaning:"Later / after",sentence:"نتكلم بعدين",sentTrans:"netekallem baadein",sentMeaning:"We'll talk later",farsi:"بعداً"},
+      {id:"v13_6",egy:"قبل كده",trans:"abl keda",egyPron:"قَبل كَده",meaning:"Before / earlier",sentence:"قبل كده كنت تعبانة",sentTrans:"abl keda kunt taabana",sentMeaning:"Earlier I was tired",farsi:"قبلاً"},
+      {id:"v13_7",egy:"كل يوم",trans:"kull yoom",egyPron:"كُل يوم",meaning:"Every day",sentence:"أنا بتمرن كل يوم",sentTrans:"ana batimarran kull yoom",sentMeaning:"I exercise every day",farsi:"هر روز"},
+      {id:"v13_8",egy:"الأسبوع",trans:"el-usboo",egyPron:"الأُسبوع",meaning:"The week",sentence:"الأسبوع ده تعبان",sentTrans:"el-usboo da taabaan",sentMeaning:"This week is exhausting",farsi:"هفته"},
     ],
   },
 ];
@@ -175,6 +303,158 @@ const EXTRA_VOCAB = {
       {id:"v5_18",egy:"ربنا يكرمك",trans:"rabbena yikrimak",egyPron:"رَبِّنا يِكرِمَك",meaning:"May God honor you",sentence:"ربنا يكرمك يا حبيبي",         sentTrans:"rabbena yikrimak ya habibi",   sentMeaning:"May God honor you, my love",        farsi:"خدا عزیزت کنه"},
       {id:"v5_19",egy:"كلنا معاك",trans:"kullina maak",egyPron:"كُلِّنا مَعاك",meaning:"We're all with you",     sentence:"كلنا معاك يا حبيبي",          sentTrans:"kullina maak ya habibi",       sentMeaning:"We're all with you, my love",       farsi:"همه پیشتیم"},
       {id:"v5_20",egy:"الحمد لله",trans:"el-hamdu lillah",egyPron:"الحَمدُ لِلّه",meaning:"Thank God / praise God",sentence:"الحمد لله على كل حاجة",      sentTrans:"el-hamdu lillah ala kull haaga",sentMeaning:"Thank God for everything",         farsi:"الحمدلله — same word!"},
+    ],
+  },
+  // ── SESSION 6 EXTRAS ────────────────────────────────────────────────────
+  6: {
+    batch2:[
+      {id:"v6_9", egy:"يلا بينا",   trans:"yalla beina",  egyPron:"يَلّا بينا",  meaning:"Let's go (together)",        sentence:"يلا بينا نروح",          sentTrans:"yalla beina nrooh",            sentMeaning:"Let's go together",          farsi:"بریم دیگه"},
+      {id:"v6_10",egy:"فرصة سعيدة",trans:"forsa saida",   egyPron:"فُرصة سَعيدة",meaning:"Nice to meet you",            sentence:"فرصة سعيدة يا نينا",     sentTrans:"forsa saida ya Nina",          sentMeaning:"Nice to meet you, Nina",     farsi:"خوشبختم"},
+      {id:"v6_11",egy:"عارفة",      trans:"aarfa",         egyPron:"عارفة",       meaning:"I know (woman)",             sentence:"أيوه، أنا عارفة",        sentTrans:"aywa, ana aarfa",              sentMeaning:"Yes, I know",                farsi:"میدونم"},
+      {id:"v6_12",egy:"مش عارفة",   trans:"mesh aarfa",    egyPron:"مِش عارفة",   meaning:"I don't know (woman)",       sentence:"مش عارفة، آسفة",         sentTrans:"mesh aarfa, asfa",             sentMeaning:"I don't know, sorry",        farsi:"نمیدونم"},
+      {id:"v6_13",egy:"قوليلي",     trans:"oollili",       egyPron:"قوليلي",      meaning:"Tell me",                    sentence:"قوليلي إيه اللي حصل",    sentTrans:"oollili eih elli hasal",       sentMeaning:"Tell me what happened",      farsi:"بگو بهم"},
+      {id:"v6_14",egy:"فاهمة",      trans:"fahma",         egyPron:"فاهمة",       meaning:"I understand (woman)",       sentence:"أيوه أنا فاهمة",         sentTrans:"aywa ana fahma",               sentMeaning:"Yes I understand",           farsi:"میفهمم"},
+    ],
+    batch3:[
+      {id:"v6_15",egy:"صاحبتي",     trans:"sahibti",       egyPron:"صاحِبتي",     meaning:"My friend (f)",              sentence:"دي صاحبتي",              sentTrans:"di sahibti",                   sentMeaning:"She's my friend",            farsi:"دوستم"},
+      {id:"v6_16",egy:"تعالوا",     trans:"taalu",         egyPron:"تَعالوا",     meaning:"Come (plural)",              sentence:"تعالوا هنا يا جماعة",    sentTrans:"taalu hena ya gamaa",          sentMeaning:"Come here everyone",         farsi:"بیاید"},
+      {id:"v6_17",egy:"جماعة",      trans:"gamaa",         egyPron:"جَماعة",      meaning:"Everyone / the gang",        sentence:"يلا يا جماعة",           sentTrans:"yalla ya gamaa",               sentMeaning:"Let's go everyone",          farsi:"همه — بچه‌ها"},
+      {id:"v6_18",egy:"بجد",        trans:"bigad",         egyPron:"بِجَد",       meaning:"Seriously / really",         sentence:"بجد؟ ده جامد!",          sentTrans:"bigad? da gaamid!",            sentMeaning:"Seriously? That's awesome!", farsi:"جدی؟ — واقعاً"},
+      {id:"v6_19",egy:"طب",         trans:"tab",           egyPron:"طَب",         meaning:"OK then / well then",        sentence:"طب يلا نروح",            sentTrans:"tab yalla nrooh",              sentMeaning:"OK then let's go",           farsi:"خب — پس"},
+      {id:"v6_20",egy:"شوف",        trans:"shoof",         egyPron:"شوف",         meaning:"Look / see (command)",       sentence:"شوف ده جميل أوي",        sentTrans:"shoof da gameel awi",          sentMeaning:"Look how beautiful this is", farsi:"ببین"},
+    ],
+  },
+  // ── SESSION 7 EXTRAS ────────────────────────────────────────────────────
+  7: {
+    batch2:[
+      {id:"v7_9", egy:"عادي",       trans:"aadi",          egyPron:"عادي",        meaning:"Normal / no big deal",       sentence:"ده عادي خالص",           sentTrans:"da aadi khalis",               sentMeaning:"That's totally normal",      farsi:"عادیه"},
+      {id:"v7_10",egy:"خالص",       trans:"khalis",        egyPron:"خالِص",       meaning:"At all / completely",        sentence:"مش تعبانة خالص",         sentTrans:"mesh taabana khalis",          sentMeaning:"Not tired at all",           farsi:"اصلاً — کاملاً"},
+      {id:"v7_11",egy:"أكيد",       trans:"akeed",         egyPron:"أكيد",        meaning:"Sure / definitely",          sentence:"أكيد، أنا موافقة",       sentTrans:"akeed, ana muwafqa",           sentMeaning:"Sure, I agree",              farsi:"حتماً"},
+      {id:"v7_12",egy:"يا سلام",    trans:"ya salaam",     egyPron:"يا سَلام",    meaning:"Wow / oh my",                sentence:"يا سلام، ده جميل أوي!",  sentTrans:"ya salaam, da gameel awi!",    sentMeaning:"Wow, that's so beautiful!",  farsi:""},
+      {id:"v7_13",egy:"إن شاء الله",trans:"inshallah",     egyPron:"إن شاء الله", meaning:"God willing / hopefully",    sentence:"هنشوفك إن شاء الله",     sentTrans:"hanshoofak inshallah",         sentMeaning:"We'll see you, God willing", farsi:"إن شاء الله — نفس کلمه!"},
+      {id:"v7_14",egy:"ماشي الحال", trans:"maashi el-haal",egyPron:"ماشي الحال",  meaning:"Getting by / so-so",         sentence:"إزيك؟ ماشي الحال",       sentTrans:"izzayyak? maashi el-haal",     sentMeaning:"How are you? Getting by",    farsi:""},
+    ],
+    batch3:[
+      {id:"v7_15",egy:"صحيح",       trans:"sahiih",        egyPron:"صَحيح",       meaning:"True / correct",             sentence:"صحيح، أنت عارف كويس",    sentTrans:"sahiih, inta aaref kwayyes",   sentMeaning:"True, you know well",        farsi:"صحیح — نفس کلمه!"},
+      {id:"v7_16",egy:"مش صحيح",    trans:"mesh sahiih",   egyPron:"مِش صَحيح",   meaning:"Not true / that's wrong",    sentence:"لأ، ده مش صحيح",         sentTrans:"la, da mesh sahiih",           sentMeaning:"No, that's not right",       farsi:""},
+      {id:"v7_17",egy:"حاجة تانية", trans:"haaga taanya",  egyPron:"حاجة تانية",  meaning:"Something else",             sentence:"عندك حاجة تانية؟",       sentTrans:"andak haaga taanya?",          sentMeaning:"Do you have something else?",farsi:"چیز دیگه‌ای"},
+      {id:"v7_18",egy:"برضو",       trans:"bardu",         egyPron:"بَرضو",       meaning:"Also / too / anyway",        sentence:"أنا برضو مبسوط",         sentTrans:"ana bardu mabsoot",            sentMeaning:"I'm also happy",             farsi:"هم — باز هم"},
+      {id:"v7_19",egy:"دوشة",       trans:"dosha",         egyPron:"دوشة",        meaning:"Noise / fuss / chaos",       sentence:"فيه دوشة كتير",          sentTrans:"feeh dosha kteer",             sentMeaning:"There's a lot of noise",     farsi:"سر و صدا"},
+      {id:"v7_20",egy:"سيب",        trans:"seeb",          egyPron:"سيب",         meaning:"Leave it / let go",          sentence:"سيب ده، مش مهم",         sentTrans:"seeb da, mesh muhimm",         sentMeaning:"Leave it, it doesn't matter",farsi:"ولش کن"},
+    ],
+  },
+  // ── SESSION 8 EXTRAS ────────────────────────────────────────────────────
+  8: {
+    batch2:[
+      {id:"v8_9", egy:"بيض",        trans:"beid",          egyPron:"بيض",         meaning:"Eggs",                       sentence:"عايزة بيض في الصبح",     sentTrans:"aayza beid fi el-subh",        sentMeaning:"I want eggs in the morning", farsi:"تخم مرغ"},
+      {id:"v8_10",egy:"فراخ",       trans:"firaakh",       egyPron:"فِراخ",       meaning:"Chicken",                    sentence:"عندنا فراخ النهارده",    sentTrans:"andina firaakh en-naharda",    sentMeaning:"We have chicken today",      farsi:"مرغ"},
+      {id:"v8_11",egy:"أكل برا",    trans:"akl barra",     egyPron:"أكل بَرّا",   meaning:"Eating out",                 sentence:"يلا ناكل برا النهارده",  sentTrans:"yalla naakul barra en-naharda",sentMeaning:"Let's eat out today",        farsi:"بیرون غذا خوردن"},
+      {id:"v8_12",egy:"حلويات",     trans:"helwiyyaat",    egyPron:"حِلوِيّات",   meaning:"Desserts / sweets",          sentence:"عايزة حاجة حلوة",        sentTrans:"aayza haaga helwa",            sentMeaning:"I want something sweet",     farsi:"شیرینی"},
+      {id:"v8_13",egy:"قهوة",       trans:"ahwa",          egyPron:"قَهوة",       meaning:"Coffee",                     sentence:"عايزة قهوة دلوقتي",      sentTrans:"aayza ahwa dilwaqti",          sentMeaning:"I want coffee right now",    farsi:"قهوه — نفس کلمه!"},
+      {id:"v8_14",egy:"شاي",        trans:"shaay",         egyPron:"شاي",         meaning:"Tea",                        sentence:"هات شاي من فضلك",        sentTrans:"haat shaay men fadlak",        sentMeaning:"Bring tea please",           farsi:"چای — نفس کلمه!"},
+    ],
+    batch3:[
+      {id:"v8_15",egy:"من فضلك",    trans:"men fadlak",    egyPron:"مِن فَضلَك",  meaning:"Please (to man)",            sentence:"هات مية من فضلك",        sentTrans:"haat mayya men fadlak",        sentMeaning:"Bring water please",         farsi:"لطفاً"},
+      {id:"v8_16",egy:"أكلت",       trans:"akalt",         egyPron:"أكَلت",       meaning:"I ate / did you eat?",       sentence:"أكلتي؟ لأ لسه",          sentTrans:"akalti? la lessa",             sentMeaning:"Did you eat? Not yet",       farsi:"خوردم"},
+      {id:"v8_17",egy:"هناكل",      trans:"hanaakul",      egyPron:"هَناكُل",     meaning:"We will eat",                sentence:"هناكل إيه النهارده؟",    sentTrans:"hanaakul eih en-naharda?",     sentMeaning:"What will we eat today?",    farsi:"میخوریم"},
+      {id:"v8_18",egy:"طبخت",       trans:"tabakht",       egyPron:"طَبَخت",      meaning:"I cooked",                   sentence:"أنا طبخت النهارده",      sentTrans:"ana tabakht en-naharda",       sentMeaning:"I cooked today",             farsi:"پختم"},
+      {id:"v8_19",egy:"فاكهة",      trans:"faakiha",       egyPron:"فاكِهة",      meaning:"Fruit",                      sentence:"عايزة فاكهة طازة",        sentTrans:"aayza faakiha taaza",          sentMeaning:"I want fresh fruit",         farsi:"میوه"},
+      {id:"v8_20",egy:"طازة",       trans:"taaza",         egyPron:"طازة",        meaning:"Fresh",                      sentence:"الخضار طازة النهارده",    sentTrans:"el-khadaar taaza en-naharda",  sentMeaning:"The vegetables are fresh today",farsi:"تازه — نفس کلمه!"},
+    ],
+  },
+  // ── SESSION 9 EXTRAS ────────────────────────────────────────────────────
+  9: {
+    batch2:[
+      {id:"v9_9", egy:"وردي",       trans:"wardi",         egyPron:"وَردي",       meaning:"Pink",                       sentence:"فستانها وردي حلو",        sentTrans:"fustanaha wardi helw",         sentMeaning:"Her dress is pretty pink",   farsi:"صورتی"},
+      {id:"v9_10",egy:"بنفسجي",     trans:"banafsigi",     egyPron:"بَنفسِجي",    meaning:"Purple",                     sentence:"البنفسجي لوني المفضل",   sentTrans:"el-banafsigi looni el-mufaddal",sentMeaning:"Purple is my favorite color",farsi:"بنفش"},
+      {id:"v9_11",egy:"بني",        trans:"bunni",         egyPron:"بُنّي",       meaning:"Brown",                      sentence:"الدب بني",               sentTrans:"el-dubb bunni",                sentMeaning:"The bear is brown",          farsi:"قهوه‌ای"},
+      {id:"v9_12",egy:"كبير",       trans:"kibiir",        egyPron:"كِبير",       meaning:"Big / large",                sentence:"ده كبير أوي",             sentTrans:"da kibiir awi",                sentMeaning:"This is very big",           farsi:"بزرگ"},
+      {id:"v9_13",egy:"صغير",       trans:"sughayyar",     egyPron:"صُغَيَّر",    meaning:"Small / little",             sentence:"ده صغير أوي",             sentTrans:"da sughayyar awi",             sentMeaning:"This is very small",         farsi:"کوچیک"},
+      {id:"v9_14",egy:"لون",        trans:"loon",          egyPron:"لون",         meaning:"Color",                      sentence:"إيه لونك المفضل؟",       sentTrans:"eih loonak el-mufaddal?",      sentMeaning:"What's your favorite color?",farsi:"رنگ — لون in Farsi!"},
+    ],
+    batch3:[
+      {id:"v9_15",egy:"دايرة",      trans:"daayra",        egyPron:"دايرة",       meaning:"Circle",                     sentence:"ارسمي دايرة يا بيبي",    sentTrans:"ursumi daayra ya baby",        sentMeaning:"Draw a circle, baby",        farsi:"دایره — نفس کلمه!"},
+      {id:"v9_16",egy:"مربع",       trans:"murabbe",       egyPron:"مُرَبَّع",    meaning:"Square",                     sentence:"الصندوق مربع",           sentTrans:"el-sanduq murabbe",            sentMeaning:"The box is square",          farsi:"مربع — نفس کلمه!"},
+      {id:"v9_17",egy:"مثلث",       trans:"musalles",      egyPron:"مُثَلَّث",    meaning:"Triangle",                   sentence:"ده شكله مثلث",           sentTrans:"da shaklu musalles",           sentMeaning:"This shape is a triangle",   farsi:"مثلث — نفس کلمه!"},
+      {id:"v9_18",egy:"طويل",       trans:"tawiil",        egyPron:"طَويل",       meaning:"Tall / long",                sentence:"هو طويل أوي",             sentTrans:"huwwa tawiil awi",             sentMeaning:"He is very tall",            farsi:"بلند"},
+      {id:"v9_19",egy:"قصير",       trans:"usayyar",       egyPron:"قُصَيَّر",    meaning:"Short",                      sentence:"هي قصيرة شوية",          sentTrans:"hiyya usayyara shwayya",       sentMeaning:"She is a bit short",         farsi:"کوتاه"},
+      {id:"v9_20",egy:"زي بعض",     trans:"zay bad",       egyPron:"زَي بَعض",    meaning:"Same / alike",               sentence:"دول زي بعض",             sentTrans:"dool zay bad",                 sentMeaning:"These are the same",         farsi:"مثل هم"},
+    ],
+  },
+  // ── SESSION 10 EXTRAS ───────────────────────────────────────────────────
+  10: {
+    batch2:[
+      {id:"v10_9", egy:"أرنب",      trans:"arnab",         egyPron:"أرنَب",       meaning:"Rabbit",                     sentence:"الأرنب بيحب الجزر",      sentTrans:"el-arnab biyihibb el-gazar",   sentMeaning:"The rabbit likes carrots",   farsi:"خرگوش"},
+      {id:"v10_10",egy:"دب",        trans:"dubb",          egyPron:"دُبّ",        meaning:"Bear",                       sentence:"الدب بيحب العسل",        sentTrans:"el-dubb biyihibb el-asal",     sentMeaning:"The bear likes honey",       farsi:"خرس"},
+      {id:"v10_11",egy:"قرد",       trans:"erd",           egyPron:"قِرد",        meaning:"Monkey",                     sentence:"القرد بيلعب",             sentTrans:"el-erd biyilab",               sentMeaning:"The monkey is playing",      farsi:"میمون"},
+      {id:"v10_12",egy:"تمساح",     trans:"timsaah",       egyPron:"تِمساح",      meaning:"Crocodile",                  sentence:"التمساح في النيل",        sentTrans:"el-timsaah fi en-neel",        sentMeaning:"The crocodile is in the Nile",farsi:"تمساح — نفس کلمه!"},
+      {id:"v10_13",egy:"زرافة",     trans:"zaraafa",       egyPron:"زَرافة",      meaning:"Giraffe",                    sentence:"الزرافة رقبتها طويلة",   sentTrans:"el-zaraafa raqabitha tawiila", sentMeaning:"The giraffe has a long neck",farsi:"زرافه — نفس کلمه!"},
+      {id:"v10_14",egy:"حصان",      trans:"husaan",        egyPron:"حُصان",       meaning:"Horse (formal)",             sentence:"الحصان جميل",            sentTrans:"el-husaan gameel",             sentMeaning:"The horse is beautiful",     farsi:"اسب"},
+    ],
+    batch3:[
+      {id:"v10_15",egy:"بقرة",      trans:"ba'ara",        egyPron:"بَقَرة",      meaning:"Cow",                        sentence:"البقرة بتقول مووو",       sentTrans:"el-ba'ara bitool moo",         sentMeaning:"The cow says moo",           farsi:"گاو"},
+      {id:"v10_16",egy:"خروف",      trans:"kharoof",       egyPron:"خَروف",       meaning:"Sheep / lamb",               sentence:"الخروف بيقول ماع",       sentTrans:"el-kharoof biyool maah",       sentMeaning:"The sheep says baa",         farsi:"گوسفند"},
+      {id:"v10_17",egy:"نمر",       trans:"nimr",          egyPron:"نِمر",        meaning:"Tiger",                      sentence:"النمر سريع أوي",         sentTrans:"el-nimr sariih awi",           sentMeaning:"The tiger is very fast",     farsi:"ببر"},
+      {id:"v10_18",egy:"تعبان",     trans:"teabbaan",      egyPron:"تِعبان",      meaning:"Snake",                      sentence:"خايفة من التعبان",        sentTrans:"khaayfa men el-teabbaan",      sentMeaning:"I'm scared of the snake",    farsi:"مار"},
+      {id:"v10_19",egy:"فراشة",     trans:"faraasha",      egyPron:"فَراشة",      meaning:"Butterfly",                  sentence:"شوف الفراشة الحلوة",     sentTrans:"shoof el-faraasha el-helwa",   sentMeaning:"Look at the pretty butterfly",farsi:"پروانه"},
+      {id:"v10_20",egy:"حيوان",     trans:"hayawaan",      egyPron:"حَيَوان",     meaning:"Animal",                     sentence:"إيه حيوانك المفضل؟",     sentTrans:"eih hayawaanak el-mufaddal?",  sentMeaning:"What's your favorite animal?",farsi:"حیوان — نفس کلمه!"},
+    ],
+  },
+  // ── SESSION 11 EXTRAS ───────────────────────────────────────────────────
+  11: {
+    batch2:[
+      {id:"v11_9", egy:"التليفزيون",trans:"el-tilifiziyoon",egyPron:"التِليفِزيون",meaning:"The TV",                    sentence:"دور التليفزيون",         sentTrans:"dawwar el-tilifiziyoon",       sentMeaning:"Turn on the TV",             farsi:"تلویزیون — نفس کلمه!"},
+      {id:"v11_10",egy:"الثلاجة",   trans:"el-tallaaga",   egyPron:"الثَلّاجة",   meaning:"The fridge",                 sentence:"فيه إيه في الثلاجة؟",    sentTrans:"feeh eih fi el-tallaaga?",     sentMeaning:"What's in the fridge?",      farsi:"یخچال"},
+      {id:"v11_11",egy:"هدوم",      trans:"hidoom",        egyPron:"هُدوم",       meaning:"Clothes",                    sentence:"الهدوم في الغسالة",      sentTrans:"el-hidoom fi el-ghassaala",    sentMeaning:"The clothes are in the washer",farsi:"لباس"},
+      {id:"v11_12",egy:"الغسالة",   trans:"el-ghassaala",  egyPron:"الغَسّالة",   meaning:"Washing machine",            sentence:"ودي الغسالة",            sentTrans:"waddi el-ghassaala",           sentMeaning:"Turn on the washing machine",farsi:"ماشین لباسشویی"},
+      {id:"v11_13",egy:"نضيف",      trans:"nadiif",        egyPron:"نَضيف",       meaning:"Clean",                      sentence:"الأوضة نضيفة دلوقتي",    sentTrans:"el-oodah nadifa dilwaqti",     sentMeaning:"The room is clean now",      farsi:"تمیز"},
+      {id:"v11_14",egy:"وسخ",       trans:"wisikh",        egyPron:"وِسِخ",       meaning:"Dirty",                      sentence:"الهدوم وسخة",            sentTrans:"el-hidoom wiikha",             sentMeaning:"The clothes are dirty",      farsi:"کثیف"},
+    ],
+    batch3:[
+      {id:"v11_15",egy:"الكنبة",    trans:"el-kanaba",     egyPron:"الكَنَبة",    meaning:"The sofa / couch",           sentence:"البيبي على الكنبة",      sentTrans:"el-baby ala el-kanaba",        sentMeaning:"The baby is on the sofa",    farsi:"کاناپه — نفس کلمه!"},
+      {id:"v11_16",egy:"التربيزة",  trans:"el-tarabeeza",  egyPron:"التَرابيزة",  meaning:"The table",                  sentence:"حط ده على التربيزة",     sentTrans:"hatt da ala el-tarabeeza",     sentMeaning:"Put this on the table",      farsi:"میز"},
+      {id:"v11_17",egy:"الكرسي",    trans:"el-kursi",      egyPron:"الكُرسي",     meaning:"The chair",                  sentence:"اقعد على الكرسي",        sentTrans:"oqod ala el-kursi",            sentMeaning:"Sit on the chair",           farsi:"کرسی — نفس کلمه!"},
+      {id:"v11_18",egy:"حط",        trans:"hatt",          egyPron:"حُط",         meaning:"Put / place",                sentence:"حط البيبي هنا",          sentTrans:"hatt el-baby hena",            sentMeaning:"Put the baby here",          farsi:"بذار"},
+      {id:"v11_19",egy:"شيل",       trans:"shiil",         egyPron:"شيل",         meaning:"Pick up / carry",            sentence:"شيل ده من هنا",          sentTrans:"shiil da men hena",            sentMeaning:"Take this away from here",   farsi:"بردار"},
+      {id:"v11_20",egy:"لقيتي",     trans:"lawyti",        egyPron:"لقيتي",       meaning:"Did you find? (to woman)",   sentence:"لقيتي المفتاح؟",         sentTrans:"lawyti el-muftaah?",           sentMeaning:"Did you find the key?",      farsi:"پیدا کردی؟"},
+    ],
+  },
+  // ── SESSION 12 EXTRAS ───────────────────────────────────────────────────
+  12: {
+    batch2:[
+      {id:"v12_9", egy:"ناس",       trans:"naas",          egyPron:"ناس",         meaning:"People",                     sentence:"الناس هنا حلوين",        sentTrans:"el-naas hena helwiin",         sentMeaning:"The people here are nice",   farsi:"مردم — ناس in Farsi!"},
+      {id:"v12_10",egy:"صغيرة",     trans:"sughayyara",    egyPron:"صُغَيَّرة",   meaning:"Young / small (f)",          sentence:"هي لسه صغيرة",           sentTrans:"hiyya lessa sughayyara",       sentMeaning:"She is still young",         farsi:"کوچولو"},
+      {id:"v12_11",egy:"كبير في السن",trans:"kibiir fi el-sinn",egyPron:"كِبير في السِن",meaning:"Old (age)",           sentence:"هو كبير في السن",        sentTrans:"huwwa kibiir fi el-sinn",      sentMeaning:"He is old",                  farsi:"پیر — مسن"},
+      {id:"v12_12",egy:"جار / جارة",trans:"gaar / gaara",  egyPron:"جار / جارة",  meaning:"Neighbor (m/f)",             sentence:"الجيران حلوين",          sentTrans:"el-giiraan helwiin",           sentMeaning:"The neighbors are nice",     farsi:"همسایه"},
+      {id:"v12_13",egy:"ربنا يحفظهم",trans:"rabbena yehfazhem",egyPron:"رَبِّنا يِحفَظهُم",meaning:"May God protect them",sentence:"الأهل؟ ربنا يحفظهم",    sentTrans:"el-ahl? rabbena yehfazhem",    sentMeaning:"The family? May God protect them",farsi:"خدا حفظشون کنه"},
+      {id:"v12_14",egy:"مشتاقة",    trans:"mushtaaqa",     egyPron:"مُشتاقة",     meaning:"Missing someone (woman)",    sentence:"أنا مشتاقة لأمي",        sentTrans:"ana mushtaaqa le-ommi",        sentMeaning:"I miss my mother",           farsi:"دلم تنگ شده"},
+    ],
+    batch3:[
+      {id:"v12_15",egy:"بيشبه",     trans:"biyishbah",     egyPron:"بيِشبَه",     meaning:"He looks like / resembles",  sentence:"البيبي بيشبه أبوه",      sentTrans:"el-baby biyishbah abuuh",      sentMeaning:"The baby looks like his father",farsi:"شبیهه به"},
+      {id:"v12_16",egy:"عيلة",      trans:"eela",          egyPron:"عيلة",        meaning:"Family (casual)",            sentence:"ده من العيلة",           sentTrans:"da men el-eela",               sentMeaning:"He's from the family",       farsi:"خانواده"},
+      {id:"v12_17",egy:"ولد",       trans:"walad",         egyPron:"وَلَد",       meaning:"Boy / kid",                  sentence:"الولد ده شاطر",          sentTrans:"el-walad da shaatir",          sentMeaning:"This boy is smart",          farsi:"پسر — بچه"},
+      {id:"v12_18",egy:"بنت",       trans:"bint",          egyPron:"بِنت",        meaning:"Girl / daughter",            sentence:"البنت دي حلوة",          sentTrans:"el-bint di helwa",             sentMeaning:"This girl is cute",          farsi:"دختر"},
+      {id:"v12_19",egy:"شاطرة",     trans:"shaatra",       egyPron:"شاطِرة",      meaning:"Smart / well done (f)",      sentence:"شاطرة يا بنتي!",         sentTrans:"shaatra ya binti!",            sentMeaning:"Well done, my daughter!",    farsi:"باهوش — آفرین"},
+      {id:"v12_20",egy:"بيشبهك",    trans:"biyishbahak",   egyPron:"بيِشبَهَك",   meaning:"He looks like you",          sentence:"البيبي بيشبهك أوي",      sentTrans:"el-baby biyishbahak awi",      sentMeaning:"The baby looks so much like you",farsi:"شبیه توئه"},
+    ],
+  },
+  // ── SESSION 13 EXTRAS ───────────────────────────────────────────────────
+  13: {
+    batch2:[
+      {id:"v13_9", egy:"إمبارح",    trans:"imbaariH",      egyPron:"إمبارِح",     meaning:"Yesterday",                  sentence:"إمبارح كان يوم حلو",     sentTrans:"imbaariH kaan yoom helw",      sentMeaning:"Yesterday was a nice day",   farsi:"دیروز"},
+      {id:"v13_10",egy:"اليوم ده",  trans:"el-yoom da",    egyPron:"اليوم ده",    meaning:"Today / this day",           sentence:"اليوم ده تقيل",          sentTrans:"el-yoom da taqeel",            sentMeaning:"Today is a hard day",        farsi:"امروز"},
+      {id:"v13_11",egy:"الشهر",     trans:"el-shahr",      egyPron:"الشَهر",      meaning:"The month",                  sentence:"الشهر ده مشغول",         sentTrans:"el-shahr da mashghool",        sentMeaning:"This month is busy",         farsi:"ماه"},
+      {id:"v13_12",egy:"على طول",   trans:"ala tool",      egyPron:"على طول",     meaning:"Always / all the time",      sentence:"هو على طول بيتكلم",      sentTrans:"huwwa ala tool biyitkallim",   sentMeaning:"He's always talking",        farsi:"همیشه"},
+      {id:"v13_13",egy:"أحياناً",   trans:"ahyaanan",      egyPron:"أحياناً",     meaning:"Sometimes",                  sentence:"أحياناً بحس بتعب",       sentTrans:"ahyaanan bahiss bitaab",       sentMeaning:"Sometimes I feel tired",     farsi:"گاهی اوقات"},
+      {id:"v13_14",egy:"مشغولة",    trans:"mashghoola",    egyPron:"مَشغولة",     meaning:"Busy (woman)",               sentence:"أنا مشغولة دلوقتي",      sentTrans:"ana mashghoola dilwaqti",      sentMeaning:"I'm busy right now",         farsi:"مشغولم"},
+    ],
+    batch3:[
+      {id:"v13_15",egy:"وقت",       trans:"waqt",          egyPron:"وَقت",        meaning:"Time",                       sentence:"مفيش وقت دلوقتي",        sentTrans:"mafeesh waqt dilwaqti",        sentMeaning:"There's no time right now",  farsi:"وقت — نفس کلمه!"},
+      {id:"v13_16",egy:"الساعة كام",trans:"el-saaa kaam",  egyPron:"الساعة كام",  meaning:"What time is it?",           sentence:"الساعة كام دلوقتي؟",     sentTrans:"el-saaa kaam dilwaqti?",       sentMeaning:"What time is it now?",       farsi:"ساعت چنده؟"},
+      {id:"v13_17",egy:"متأخر",     trans:"mitaakhkhar",   egyPron:"مِتَأخَّر",   meaning:"Late",                       sentence:"أنا متأخرة شوية",        sentTrans:"ana mitaakhkhara shwayya",     sentMeaning:"I'm a little late",          farsi:"دیر — متأخر in Farsi!"},
+      {id:"v13_18",egy:"استني",     trans:"istanni",       egyPron:"اِستَنّي",    meaning:"Wait (to woman)",            sentence:"استني شوية يا بيبي",     sentTrans:"istanni shwayya ya baby",      sentMeaning:"Wait a little, baby",        farsi:"صبر کن"},
+      {id:"v13_19",egy:"خلص",       trans:"khilas",        egyPron:"خِلِص",       meaning:"It's done / finished",       sentence:"خلص، يلا ننام",          sentTrans:"khilas, yalla nenaam",         sentMeaning:"Done, let's sleep",          farsi:"تموم شد"},
+      {id:"v13_20",egy:"كمان شوية", trans:"kamaan shwayya",egyPron:"كَمان شُوية", meaning:"A little more / just a bit more",sentence:"كمان شوية وخلصنا",    sentTrans:"kamaan shwayya we khalasna",   sentMeaning:"Just a bit more and we're done",farsi:"یه کم دیگه"},
     ],
   },
 };
@@ -1141,7 +1421,7 @@ export default function App() {
   // stats: streak, accuracy, history
   const [stats, setStats] = useState({totalCorrect:0,totalWrong:0,dayStreak:0,lastPracticeDate:null,testHistory:[]});
   const statsRef = useRef({totalCorrect:0,totalWrong:0,dayStreak:0,lastPracticeDate:null,testHistory:[]});
-  const [unlockedBatches, setUnlockedBatches] = useState({1:1,2:1,3:1,4:1,5:1});
+  const [unlockedBatches, setUnlockedBatches] = useState({1:1,2:1,3:1,4:1,5:1,6:1,7:1,8:1,9:1,10:1,11:1,12:1,13:1});
 
   // Learn tab state
   const [activeLearnSession, setActiveLearnSession] = useState(null);
@@ -1206,14 +1486,14 @@ export default function App() {
 
       let streak = 0;
       if (uniqueDays.length > 0) {
-        const today     = new Date().toISOString().slice(0,10);
-        const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+        const today     = localDateStr();
+        const yesterday = localDateStr(new Date(Date.now()-86400000));
         // Start counting only if practiced today or yesterday
         let cursor = uniqueDays[0];
         if (cursor === today || cursor === yesterday) {
           streak = 1;
           for (let i = 1; i < uniqueDays.length; i++) {
-            const prev = new Date(new Date(cursor).getTime() - 86400000).toISOString().slice(0,10);
+            const prev = localDateStr(new Date(new Date(cursor).getTime() - 86400000));
             if (uniqueDays[i] === prev) {
               streak++;
               cursor = uniqueDays[i];
@@ -1232,7 +1512,7 @@ export default function App() {
     if (data.testProgress) {
       setTestProgress(data.testProgress);
       const ub = {};
-      [1,2,3,4,5].forEach(id => { ub[id] = calcUnlockedBatch(id, data.testProgress); });
+      [1,2,3,4,5,6,7,8,9,10,11,12,13].forEach(id => { ub[id] = calcUnlockedBatch(id, data.testProgress); });
       setUnlockedBatches(ub);
       buildPlan(data.testProgress, data.learnFlags||{}, ub);
     }
@@ -1256,7 +1536,7 @@ export default function App() {
           localSet("egy_progress_cache", remote);
         }
       } else {
-        buildPlan({}, {}, {1:1,2:1,3:1,4:1,5:1});
+        buildPlan({}, {}, {1:1,2:1,3:1,4:1,5:1,6:1,7:1,8:1,9:1,10:1,11:1,12:1,13:1});
         setLoading(false); // Show name entry screen
       }
     }
@@ -1347,7 +1627,7 @@ export default function App() {
 
     // Recompute which batches are now unlocked based on new progress
     const newUB = {};
-    [1,2,3,4,5].forEach(id => { newUB[id] = calcUnlockedBatch(id, newTP); });
+    [1,2,3,4,5,6,7,8,9,10,11,12,13].forEach(id => { newUB[id] = calcUnlockedBatch(id, newTP); });
     setUnlockedBatches(newUB);
 
     // Update stats
@@ -1355,11 +1635,11 @@ export default function App() {
     const wrong   = resArr.filter(r=>r.correct===false).length;
     const skipped = resArr.filter(r=>r.correct===null).length;
     const now     = new Date();
-    const today   = now.toISOString().slice(0,10);
+    const today   = localDateStr(now);
     const time    = now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
     const currentStats = statsRef.current; // use ref — always current, no stale closure
     const last    = currentStats.lastPracticeDate;
-    const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    const yesterday = localDateStr(new Date(Date.now()-86400000));
     const newStreak = last===today?currentStats.dayStreak:last===yesterday?(currentStats.dayStreak||0)+1:1;
     const newStats = {
       totalCorrect:(currentStats.totalCorrect||0)+correct,
