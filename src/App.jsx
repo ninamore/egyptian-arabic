@@ -1,6 +1,45 @@
 import { useState, useEffect, useRef } from "react";
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
+// ─── ENCOURAGING MESSAGES ────────────────────────────────────────────────────
+const MESSAGES = {
+  streak: [
+    "🔥 {n} days in a row! يلا، keep going!",
+    "🔥 {n}-day streak! Your baby will hear perfect Egyptian soon.",
+    "🔥 {n} days straight! ممتاز — consistency is everything.",
+    "🔥 Day {n}! Don't stop now, you're building something real.",
+    "🔥 {n} days! Your husband doesn't know it yet but you're catching up fast.",
+  ],
+  newSession: [
+    "يلا! Let's see what you remember 💪",
+    "تعالى نتعلم — let's learn something new today!",
+    "Your baby is counting on you. يلا! 👶",
+    "A few minutes now = a lifetime of connection. يلا بينا!",
+    "بحاول أتعلم — and you're actually doing it! Let's go.",
+  ],
+  correctStreak: [
+    "On a roll! استمري 🌟",
+    "ممتاز! Keep that energy!",
+    "Your brain is making connections — this is how languages stick.",
+    "جامد أوي! You're getting it.",
+    "That's the stuff! يلا for the next one.",
+  ],
+  midSession: [
+    "Halfway there! يلا بينا 💪",
+    "You're doing great — don't stop now!",
+    "هيا! Almost there.",
+    "Your streak is watching. Keep going! 🔥",
+    "كده تمام — just a few more!",
+  ],
+};
+
+function randomMsg(key, vars={}) {
+  const arr = MESSAGES[key];
+  let msg = arr[Math.floor(Math.random()*arr.length)];
+  Object.entries(vars).forEach(([k,v]) => { msg = msg.replace(`{${k}}`, v); });
+  return msg;
+}
+
 // Returns today's date as YYYY-MM-DD in LOCAL timezone (not UTC)
 // Using toISOString() gives UTC which can be wrong date for users in EST/PST evenings
 function localDateStr(date = new Date()) {
@@ -1185,7 +1224,7 @@ function TestSession({ testProgress, unlockedBatches, onComplete, blocked=false 
 
   return (
     <div style={{padding:"0 0 20px"}}>
-      <div style={{display:"flex",gap:4,padding:"14px 20px 10px",justifyContent:"center",flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:4,padding:"14px 20px 6px",justifyContent:"center",flexWrap:"wrap"}}>
         {queue.map((_,i)=>(
           <div key={i} style={{width:9,height:9,borderRadius:"50%",flexShrink:0,
             background:i<idx?(results[i]?.correct===true?"#28a745":results[i]?.correct===false?"#dc3545":"#aaa")
@@ -1193,6 +1232,11 @@ function TestSession({ testProgress, unlockedBatches, onComplete, blocked=false 
             transition:"background 0.3s"}}/>
         ))}
       </div>
+      {idx===Math.floor(queue.length/2)&&idx>0&&(
+        <div style={{textAlign:"center",fontSize:12,color:"#7B6FA0",fontStyle:"italic",marginBottom:4}}>
+          {randomMsg("midSession")}
+        </div>
+      )}
       <div style={{padding:"0 16px"}}>
         <TestExCard key={`${idx}-${queue[idx].vocabId}-${queue[idx].type}`}
           item={queue[idx]} onResult={handleResult} blocked={blocked}/>
@@ -1348,6 +1392,41 @@ function ReviewCards({ testProgress, onUpdate, showTrans }) {
   );
 }
 
+// ─── DAY LOG COMPONENT ───────────────────────────────────────────────────────
+function DayLog({ date, sessions, totalSessions }) {
+  const [open, setOpen] = React.useState(false);
+  // Format date nicely
+  const d = new Date(date + "T12:00:00");
+  const dayLabel = d.toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"});
+
+  return (
+    <div style={{borderBottom:"1px solid #f5f5f5",paddingBottom:4,marginBottom:4}}>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{width:"100%",background:"none",border:"none",cursor:"pointer",
+          display:"flex",justifyContent:"space-between",alignItems:"center",
+          padding:"7px 0",fontFamily:"inherit"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:13,fontWeight:"bold",color:"#2c2c2c"}}>{dayLabel}</span>
+          <span style={{fontSize:11,background:"#f0f0f0",color:"#666",
+            padding:"2px 7px",borderRadius:20}}>{totalSessions} session{totalSessions!==1?"s":""}</span>
+        </div>
+        <span style={{fontSize:12,color:"#bbb"}}>{open?"▲":"▼"}</span>
+      </button>
+      {open && (
+        <div style={{paddingLeft:12,paddingBottom:6}}>
+          {sessions.map((s,i) => (
+            <div key={i} style={{display:"flex",justifyContent:"space-between",
+              padding:"4px 0",fontSize:12,color:"#888",borderTop:"1px solid #f9f9f9"}}>
+              <span>{s.time||"--:--"}</span>
+              <span>{(s.correct||0)+(s.wrong||0)+(s.skipped||0)} questions</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── PROGRESS TAB ─────────────────────────────────────────────────────────────
 function ProgressTab({ stats, learnFlags, testProgress }) {
   const totalWords    = ALL_VOCAB.length;
@@ -1421,24 +1500,27 @@ function ProgressTab({ stats, learnFlags, testProgress }) {
       </div>
 
       {/* Test history */}
-      {(stats.testHistory||[]).length>0&&(
-        <div style={{background:"#fff",borderRadius:14,padding:"14px 16px",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
-          <p style={{fontSize:13,fontWeight:"bold",margin:"0 0 4px"}}>📅 Recent Tests</p>
-          <p style={{fontSize:11,color:"#aaa",margin:"0 0 10px"}}>Each row = one completed test session</p>
-          {[...(stats.testHistory||[])].reverse().slice(0,10).map((s,i)=>(
-            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f5f5f5",fontSize:13}}>
-              <div>
-                <div style={{color:"#555"}}>{s.date}</div>
-                {s.time&&<div style={{fontSize:11,color:"#bbb"}}>{s.time}</div>}
-              </div>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <span style={{fontSize:11,color:"#bbb"}}>{(s.correct||0)+(s.wrong||0)+(s.skipped||0)} questions</span>
-                <span style={{color:s.wrong>s.correct?"#dc3545":"#28a745"}}>✅{s.correct} ❌{s.wrong} ⏭{s.skipped}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {(stats.testHistory||[]).length>0&&(()=>{
+        // Group sessions by date
+        const grouped = {};
+        [...(stats.testHistory||[])].reverse().forEach(s => {
+          if (!grouped[s.date]) grouped[s.date] = [];
+          grouped[s.date].push(s);
+        });
+        const days = Object.keys(grouped).slice(0,14);
+        return (
+          <div style={{background:"#fff",borderRadius:14,padding:"14px 16px",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
+            <p style={{fontSize:13,fontWeight:"bold",margin:"0 0 10px"}}>📅 Recent Practice</p>
+            {days.map(date => {
+              const sessions = grouped[date];
+              const totalSessions = sessions.length;
+              return (
+                <DayLog key={date} date={date} sessions={sessions} totalSessions={totalSessions}/>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -1459,6 +1541,7 @@ export default function App() {
   const userIdRef = useRef(null);                       // ref for sync access in callbacks
   const [nameInput, setNameInput] = useState("");     // for the name entry screen
   const [syncing, setSyncing]     = useState(false);  // shows sync indicator
+  const [showReminder, setShowReminder] = useState(false); // late-day reminder banner
 
   // Feedback widget state — must be at top, before any early returns
   const [fbOpen, setFbOpen]       = useState(false);
@@ -1491,6 +1574,8 @@ export default function App() {
   // Test tab state
   const [testRunning, setTestRunning] = useState(false);
   const [testSessionKey, setTestSessionKey] = useState(0); // stable key for TestSession
+  const sessionStartRef = useRef(null);   // timestamp when session started
+  const [resumePrompt, setResumePrompt] = useState(false); // show resume/restart dialog
 
   // Exit confirmation dialog
   const [exitConfirm, setExitConfirm]   = useState(false);  // show dialog?
@@ -1604,7 +1689,75 @@ export default function App() {
 
   // Keep refs in sync with state
   useEffect(() => { userIdRef.current = userId; }, [userId]);
+
+  // Push notification setup — request permission once user is logged in
+  useEffect(() => {
+    if (!userId) return;
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
+    // Request permission if not yet granted
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, [userId]);
+
+  // Schedule daily 7pm reminder notification
+  useEffect(() => {
+    if (!userId) return;
+    if (!("Notification" in window)) return;
+
+    function scheduleReminder() {
+      const now = new Date();
+      const today7pm = new Date();
+      today7pm.setHours(19, 0, 0, 0);
+      // If already past 7pm today, schedule for tomorrow
+      if (now > today7pm) today7pm.setDate(today7pm.getDate() + 1);
+      const msUntil = today7pm - now;
+
+      return setTimeout(() => {
+        // Check if practiced today
+        const todayStr = localDateStr();
+        const practiced = (statsRef.current.testHistory||[]).some(h => h.date === todayStr);
+        if (!practiced && Notification.permission === "granted") {
+          new Notification("يلا! 🔥 Time to practice your Egyptian Arabic", {
+            body: "Don't break your streak! Just 5 minutes keeps it alive.",
+            icon: "/favicon.ico",
+          });
+        }
+        // Show in-app banner too
+        if (!practiced) setShowReminder(true);
+        // Reschedule for tomorrow
+        scheduleReminder();
+      }, msUntil);
+    }
+
+    const t = scheduleReminder();
+    // Also check right now if it's past 7pm and no practice
+    const now = new Date();
+    if (now.getHours() >= 19) {
+      const todayStr = localDateStr();
+      const practiced = (statsRef.current.testHistory||[]).some(h => h.date === todayStr);
+      if (!practiced) setShowReminder(true);
+    }
+    return () => clearTimeout(t);
+  }, [userId]);
   useEffect(() => { statsRef.current = stats; }, [stats]);
+
+  // Session timeout: check when app becomes visible again
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      if (!sessionStartRef.current) return;
+      const isActive = (testRunning) || (tab === "learn" && learnMode === "quiz");
+      if (!isActive) return;
+      const elapsed = Date.now() - sessionStartRef.current;
+      const THIRTY_MIN = 30 * 60 * 1000;
+      if (elapsed > THIRTY_MIN) {
+        setResumePrompt(true);
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [testRunning, tab, learnMode]);
 
   // isInSession: true when user is mid-test or mid-practice (not on browse/done screens)
   const isInSession = (testRunning) || (tab === "learn" && learnMode === "quiz");
@@ -1716,6 +1869,7 @@ export default function App() {
     saveUserProgress(userIdRef.current, snap);
 
     setTestRunning(false);
+    setShowReminder(false); // practiced today — hide reminder
   }
 
   // Update testProgress from Review tab
@@ -1883,7 +2037,9 @@ export default function App() {
           <div style={{fontSize:11,color:"#555",fontStyle:"italic"}}>
             {syncing ? "⏳" : "✓"} {userId}
           </div>
-          <div style={A.pill}>🔥{stats.dayStreak||0}</div>
+          <div style={A.pill} title={(stats.dayStreak||0)>1?randomMsg('streak',{n:stats.dayStreak}):""}>
+            🔥{stats.dayStreak||0}
+          </div>
           <button style={A.transBtn} onClick={()=>setShowTrans(t=>!t)}
             title="Show/hide romanization (pronunciation guide)">
             {showTrans?"🔤 Hide":"🔤 Show"}
@@ -2020,7 +2176,7 @@ export default function App() {
                 {getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id]).map((v,i)=>(
                   <VocabCard key={i} v={v} color={activeLearnSession.color} showTrans={showTrans} learnFlags={learnFlags} testProgress={testProgress}/>
                 ))}
-                <button onClick={()=>{ setLearnMode("quiz"); setLearnSessionKey(k=>k+1); }}
+                <button onClick={()=>{ setLearnMode("quiz"); setLearnSessionKey(k=>k+1); sessionStartRef.current=Date.now(); }}
                   style={{...A.bigBtn,background:activeLearnSession.color,marginTop:8}}>
                   Practice these words →
                 </button>
@@ -2162,7 +2318,7 @@ export default function App() {
                     );
                   })}
                 </div>
-                <button onClick={()=>{ setTestRunning(true); setTestSessionKey(k=>k+1); }} style={{...A.bigBtn,background:"#7B6FA0"}}>
+                <button onClick={()=>{ setTestRunning(true); setTestSessionKey(k=>k+1); sessionStartRef.current=Date.now(); }} style={{...A.bigBtn,background:"#7B6FA0"}}>
                   Start Test →
                 </button>
               </div>
@@ -2217,6 +2373,39 @@ export default function App() {
       )}
 
       {/* ── FLOATING FEEDBACK BUTTON ── */}
+      {/* ── RESUME PROMPT DIALOG (shown after 30+ min away) ── */}
+      {resumePrompt && (
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.6)",
+          display:"flex",alignItems:"center",justifyContent:"center",padding:"0 24px"}}>
+          <div style={{background:"#fff",borderRadius:20,padding:"28px 24px",width:"100%",maxWidth:360,textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>😴</div>
+            <div style={{fontSize:18,fontWeight:"bold",marginBottom:8,color:"#2c2c2c"}}>Welcome back!</div>
+            <div style={{fontSize:14,color:"#666",lineHeight:1.6,marginBottom:24}}>
+              You were away for a while.<br/>
+              Want to continue where you left off, or start fresh?
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>{
+                  setResumePrompt(false);
+                  // Start fresh
+                  if (testRunning) { setTestRunning(false); setTestRunning(true); setTestSessionKey(k=>k+1); }
+                  if (learnMode==="quiz") { setLearnMode("browse"); }
+                  sessionStartRef.current = Date.now();
+                }}
+                style={{flex:1,padding:13,background:"#f0f0f0",border:"none",borderRadius:12,
+                  fontSize:14,cursor:"pointer",fontFamily:"inherit",fontWeight:"bold",color:"#555"}}>
+                Start fresh
+              </button>
+              <button onClick={()=>{ setResumePrompt(false); sessionStartRef.current=Date.now(); }}
+                style={{flex:1,padding:13,background:"#7B6FA0",border:"none",borderRadius:12,
+                  fontSize:14,cursor:"pointer",fontFamily:"inherit",fontWeight:"bold",color:"#fff"}}>
+                Continue ←
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── EXIT CONFIRMATION DIALOG ── */}
       {exitConfirm && (
         <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.6)",
@@ -2319,6 +2508,25 @@ export default function App() {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── LATE-DAY REMINDER BANNER ── */}
+      {showReminder && (
+        <div style={{position:"fixed", bottom:70, left:"50%", transform:"translateX(-50%)",
+          width:"calc(100% - 32px)", maxWidth:398, zIndex:998,
+          background:"#dc3545", borderRadius:14, padding:"12px 16px",
+          display:"flex", justifyContent:"space-between", alignItems:"center",
+          boxShadow:"0 4px 16px rgba(220,53,69,0.4)"}}>
+          <div>
+            <div style={{color:"#fff",fontWeight:"bold",fontSize:13}}>🔥 يلا! Practice time!</div>
+            <div style={{color:"rgba(255,255,255,0.85)",fontSize:11,marginTop:2}}>
+              You haven't practiced today yet. Don't break your streak!
+            </div>
+          </div>
+          <button onClick={()=>setShowReminder(false)}
+            style={{background:"none",border:"none",color:"rgba(255,255,255,0.7)",
+              fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0}}>✕</button>
         </div>
       )}
 
