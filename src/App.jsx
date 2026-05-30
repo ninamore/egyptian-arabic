@@ -594,6 +594,60 @@ async function saveUserProgress(userId, data) {
 }
 
 // ─── TTS ──────────────────────────────────────────────────────────────────────
+// ─── AUDIO PLAYBACK ───────────────────────────────────────────────────────────
+// Uses pre-generated Egyptian Arabic MP3 files stored in /audio/
+// Falls back to browser TTS if file not found
+
+const audioCache = {}; // cache Audio objects to avoid re-fetching
+let currentAudio = null;
+
+function getAudioFile(vocabId, type) {
+  // type: "word" or "sentence"
+  return `/audio/${vocabId}_${type}.mp3`;
+}
+
+// Find vocabId from Arabic text by searching ALL_VOCAB
+function findVocabId(text) {
+  const v = ALL_VOCAB.find(v => v.egy === text || v.sentence === text);
+  if (!v) return null;
+  if (v.egy === text) return { id: v.id, type: "word" };
+  if (v.sentence === text) return { id: v.id, type: "sentence" };
+  return null;
+}
+
+function playAudio(vocabId, type) {
+  const src = getAudioFile(vocabId, type);
+
+  // Stop any currently playing audio
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+  }
+
+  if (!audioCache[src]) {
+    audioCache[src] = new Audio(src);
+  }
+
+  currentAudio = audioCache[src];
+  currentAudio.currentTime = 0;
+  currentAudio.play().catch(() => {
+    // File not found — fall back to browser TTS
+    ttsFallback(vocabId === "word" ? text : text);
+  });
+}
+
+// tts() — main function called throughout the app
+// Accepts Arabic text, finds the matching audio file, plays it
+function tts(text, rate = 0.82) {
+  const match = findVocabId(text);
+  if (match) {
+    playAudio(match.id, match.type);
+  } else {
+    ttsFallback(text, rate);
+  }
+}
+
+// ttsFallback — browser TTS as backup for any text not in our audio library
 const _vs = { voices:[], ready:false };
 function loadVoices() {
   if (!window.speechSynthesis) return;
@@ -608,7 +662,7 @@ if (typeof window !== "undefined") {
     setTimeout(() => clearInterval(p), 6000);
   }
 }
-function tts(text, rate = 0.82) {
+function ttsFallback(text, rate = 0.82) {
   if (!window.speechSynthesis) return;
   loadVoices();
   window.speechSynthesis.cancel();
@@ -621,16 +675,21 @@ function tts(text, rate = 0.82) {
   setTimeout(() => window.speechSynthesis.speak(u), 60);
 }
 
-function SpeakBtn({ text, size=18, color="#888" }) {
+function SpeakBtn({ text, vocabId, audioType="word", size=18, color="#888" }) {
   const [on, setOn] = useState(false);
+  function play() {
+    if (vocabId) playAudio(vocabId, audioType);
+    else tts(text);
+  }
   return (
-    <button onClick={() => { setOn(true); tts(text); setTimeout(() => setOn(false), 1800); }}
+    <button onClick={() => { setOn(true); play(); setTimeout(() => setOn(false), 1800); }}
       style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 6px",
         fontSize:size, color:on?"#E8936A":color, transition:"color 0.2s", lineHeight:1, flexShrink:0 }}>
       {on ? "🔈" : "🔊"}
     </button>
   );
 }
+
 
 // ─── OPTION HELPERS ───────────────────────────────────────────────────────────
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
@@ -704,7 +763,7 @@ function LearnExCard({ vocab, sessionColor, onResult, blocked=false }) {
   const [submitted, setSubmitted] = useState(false); // after Submit pressed
   const [options]               = useState(() => wordOptions(vocab.meaning));
 
-  useEffect(() => { tts(vocab.egy, 0.78); }, []);
+  useEffect(() => { playAudio(vocab.id, "word"); }, []);
 
   const isCorrect = submitted && chosen === vocab.meaning;
   const isWrong   = submitted && chosen !== vocab.meaning && chosen !== null;
@@ -827,7 +886,7 @@ function TestExCard({ item, onResult, blocked=false }) {
 
   // For word/sentence: auto-play Arabic. For reverse: silent.
   useEffect(() => {
-    if (type !== "reverse") tts(type==="sentence" ? vocab.sentence : vocab.egy, 0.78);
+    if (type !== "reverse") playAudio(vocab.id, type === "sentence" ? "sentence" : "word");
   }, []);
 
   const isCorrect = submitted && chosen === correct;
@@ -837,7 +896,7 @@ function TestExCard({ item, onResult, blocked=false }) {
     setSubmitted(true);
     // Only for reverse (English→Arabic): play the correct Arabic answer after submit,
     // regardless of whether the user got it right or wrong.
-    if (type === "reverse") setTimeout(() => tts(correct, 0.82), 150);
+    if (type === "reverse") setTimeout(() => playAudio(vocab.id, "word"), 150);
     // Word/sentence questions: no audio after submit (word already played on mount)
   }
 
