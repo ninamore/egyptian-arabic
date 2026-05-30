@@ -1394,7 +1394,7 @@ function ReviewCards({ testProgress, onUpdate, showTrans }) {
 
 // ─── DAY LOG COMPONENT ───────────────────────────────────────────────────────
 function DayLog({ date, sessions, totalSessions }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
   // Format date nicely
   const d = new Date(date + "T12:00:00");
   const dayLabel = d.toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"});
