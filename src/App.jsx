@@ -1629,26 +1629,33 @@ export default function App() {
         })).filter(h => h.date);
       }
 
-      // Recalculate streak from history — don't trust stored value
-      // Get unique practice days sorted descending
+      // Recalculate streak — all arithmetic in local time to avoid UTC issues
       const uniqueDays = [...new Set((st.testHistory||[]).map(h=>h.date))]
-        .sort((a,b) => b.localeCompare(a)); // most recent first
+        .filter(d => d && d.match(/^\d{4}-\d{2}-\d{2}$/))
+        .sort((a,b) => b.localeCompare(a));
+
+      function prevDay(dateStr) {
+        const [y,m,d] = dateStr.split('-').map(Number);
+        const dt = new Date(y, m-1, d); // local constructor — no UTC
+        dt.setDate(dt.getDate() - 1);
+        return dt.getFullYear() + '-' +
+          String(dt.getMonth()+1).padStart(2,'0') + '-' +
+          String(dt.getDate()).padStart(2,'0');
+      }
 
       let streak = 0;
       if (uniqueDays.length > 0) {
         const today     = localDateStr();
-        const yesterday = localDateStr(new Date(Date.now()-86400000));
-        // Start counting only if practiced today or yesterday
+        const yesterday = prevDay(today);
         let cursor = uniqueDays[0];
         if (cursor === today || cursor === yesterday) {
           streak = 1;
           for (let i = 1; i < uniqueDays.length; i++) {
-            const prev = localDateStr(new Date(new Date(cursor).getTime() - 86400000));
-            if (uniqueDays[i] === prev) {
+            if (uniqueDays[i] === prevDay(cursor)) {
               streak++;
               cursor = uniqueDays[i];
             } else {
-              break; // gap found
+              break;
             }
           }
         }
