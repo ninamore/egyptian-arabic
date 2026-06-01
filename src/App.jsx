@@ -1347,8 +1347,11 @@ function ReviewCards({ testProgress, onUpdate, showTrans }) {
               border:`2px solid ${isOpen?v.sessionColor:"transparent"}`}}>
 
             {/* Word row — always visible */}
-            <div onClick={()=>{ setOpenId(isOpen?null:v.id); if(!isOpen) playAudio(v.id,"word"); }}
+            <div onClick={()=>setOpenId(isOpen?null:v.id)}
               style={{display:"flex",alignItems:"center",gap:10,padding:"14px 16px",cursor:"pointer"}}>
+              <button onClick={e=>{e.stopPropagation();playAudio(v.id,"word");}}
+                style={{background:"none",border:"none",cursor:"pointer",fontSize:18,
+                  color:"#E8936A",flexShrink:0,padding:0,lineHeight:1}}>🔊</button>
               <span style={{fontSize:22,fontWeight:"bold",direction:"rtl",flex:1}}>{v.egy}</span>
               <span style={{fontSize:11,color:isBookmarked?"#E8936A":"#dc3545",flexShrink:0}}>
                 {isBookmarked?"📌":`❌ ${wrongCount}`}
