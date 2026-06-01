@@ -130,7 +130,7 @@ const SESSIONS = [
       {id:"v6_4",egy:"بحاول أتعلم",trans:"bahaawel ateaallem",egyPron:"بحاوِل أتعَلَّم",meaning:"I'm trying to learn",sentence:"أنا بحاول أتعلم عربي",sentTrans:"ana bahaawel ateaallem arabi",sentMeaning:"I'm trying to learn Arabic",farsi:"دارم یاد میگیرم"},
       {id:"v6_5",egy:"لسه بتعلم",trans:"lessa biteaallem",egyPron:"لِسّه بِتعَلَّم",meaning:"Still learning",sentence:"أنا لسه بتعلم، معلش!",sentTrans:"ana lessa biteaallem, maalesh!",sentMeaning:"I'm still learning, sorry!",farsi:"هنوز دارم یاد میگیرم"},
       {id:"v6_6",egy:"مش فاهمة",trans:"mesh fahma",egyPron:"مِش فاهمة",meaning:"I don't understand (woman)",sentence:"مش فاهمة، ممكن تعيد؟",sentTrans:"mesh fahma, mumkin teeid?",sentMeaning:"I don't understand, can you repeat?",farsi:"نمیفهمم"},
-      {id:"v6_7",egy:"بالأهبل",trans:"bil-ahbal",egyPron:"بالأهبَل",meaning:"Slowly please",sentence:"ممكن تتكلم بالأهبل؟",sentTrans:"mumkin titkallim bil-ahbal?",sentMeaning:"Can you speak slowly?",farsi:"آروم‌تر"},
+      {id:"v6_7",egy:"بالراحة",trans:"bil-raaha",egyPron:"بالراحة",meaning:"Slowly / gently / take it easy",sentence:"ممكن تتكلم بالراحة؟",sentTrans:"mumkin titkallim bil-raaha?",sentMeaning:"Can you speak slowly?",farsi:"آروم‌تر — یواش‌تر"},
       {id:"v6_8",egy:"جامد",trans:"gaamid",egyPron:"جامِد",meaning:"Cool / awesome / great",sentence:"ده جامد أوي!",sentTrans:"da gaamid awi!",sentMeaning:"That's so cool!",farsi:"باحاله — مثل خفن"},
     ],
   },
@@ -911,7 +911,7 @@ function LearnExCard({ vocab, sessionColor, onResult, blocked=false }) {
 }
 
 // ─── TEST EXERCISE CARD (3 types, all 40 words) ───────────────────────────────
-function TestExCard({ item, onResult, blocked=false }) {
+function TestExCard({ item, onResult, onBookmark, blocked=false }) {
   const vocab   = ALL_VOCAB.find(v => v.id === item.vocabId);
   const type    = item.type;
   const correct = type==="word" ? vocab.meaning : type==="sentence" ? vocab.sentMeaning : vocab.egy;
@@ -1027,6 +1027,16 @@ function TestExCard({ item, onResult, blocked=false }) {
         )}
       </div>
 
+      {submitted && onBookmark && (
+        <button onClick={()=>onBookmark(item.vocabId)}
+          style={{width:"100%",marginTop:8,padding:"8px 12px",background:"none",
+            border:"1.5px solid #E8936A",borderRadius:10,fontSize:12,
+            cursor:"pointer",color:"#E8936A",fontFamily:"inherit",
+            display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          📌 Add to Review for more practice
+        </button>
+      )}
+
       {/* Reveal — BELOW buttons, only on wrong answer */}
       {submitted && !isCorrect && (
         <div style={{...X.reveal, marginTop:10}}>
@@ -1077,7 +1087,7 @@ function buildTestQueue(testProgress, unlockedBatches) {
   return out.slice(0,12);
 }
 
-function TestSession({ testProgress, unlockedBatches, onComplete, blocked=false }) {
+function TestSession({ testProgress, unlockedBatches, onComplete, onBookmark, blocked=false }) {
   const [queue] = useState(() => buildTestQueue(testProgress, unlockedBatches));
   const [idx,setIdx]         = useState(0);
   const [results,setResults] = useState([]);
@@ -1239,7 +1249,8 @@ function TestSession({ testProgress, unlockedBatches, onComplete, blocked=false 
       )}
       <div style={{padding:"0 16px"}}>
         <TestExCard key={`${idx}-${queue[idx].vocabId}-${queue[idx].type}`}
-          item={queue[idx]} onResult={handleResult} blocked={blocked}/>
+          item={queue[idx]} onResult={handleResult} blocked={blocked}
+          onBookmark={onBookmark}/>
       </div>
     </div>
   );
@@ -1293,7 +1304,7 @@ function VocabCard({ v, color, showTrans, learnFlags, testProgress }) {
 
 // ─── REVIEW FLASHCARDS (Test tab mistakes only) ───────────────────────────────
 function ReviewCards({ testProgress, onUpdate, showTrans }) {
-  const weakVocab = ALL_VOCAB.filter(v=>(testProgress[v.id]?.wrong||0)>0);
+  const weakVocab = ALL_VOCAB.filter(v=>(testProgress[v.id]?.wrong||0)>0||testProgress[v.id]?.bookmarked);
   const [deck] = useState(() => shuffle([...weakVocab]));
   const [idx,setIdx]     = useState(0);
   const [flipped,setFlipped] = useState(false);
@@ -1773,6 +1784,17 @@ export default function App() {
   }
 
   // Called when a test question loads — marks word as seen immediately
+  function onBookmarkWord(vocabId) {
+    setTestProgress(prev => {
+      if (prev[vocabId]?.bookmarked) return prev;
+      const updated = { ...prev, [vocabId]: { ...(prev[vocabId]||{correct:0,wrong:0,seen:true}), bookmarked:true } };
+      const snap = { learnFlags, testProgress: updated, stats };
+      localSet("egy_progress_cache", snap);
+      saveUserProgress(userIdRef.current, snap);
+      return updated;
+    });
+  }
+
   function onWordSeen(vocabId) {
     setTestProgress(prev => {
       if (prev[vocabId]?.seen) return prev;
@@ -1874,8 +1896,13 @@ export default function App() {
 
   // Update testProgress from Review tab
   function onReviewUpdate(vocabId, newP) {
-    const updated = {...testProgress,[vocabId]:newP};
-    saveTestProgress(updated);
+    setTestProgress(prev => {
+      const updated = {...prev,[vocabId]:newP};
+      const snap = { learnFlags, testProgress: updated, stats };
+      localSet("egy_progress_cache", snap);
+      saveUserProgress(userIdRef.current, snap);
+      return updated;
+    });
   }
 
   if (loading) return (
@@ -1941,7 +1968,7 @@ export default function App() {
   }
 
   const learnFlagCount = Object.keys(learnFlags).length;
-  const reviewCount    = ALL_VOCAB.filter(v=>(testProgress[v.id]?.wrong||0)>0).length;
+  const reviewCount    = ALL_VOCAB.filter(v=>(testProgress[v.id]?.wrong||0)>0||testProgress[v.id]?.bookmarked).length;
 
   // ── FEEDBACK WIDGET STATE (moved to top) ──
 
@@ -2340,6 +2367,7 @@ export default function App() {
                 testProgress={testProgress}
                 unlockedBatches={unlockedBatches}
                 onComplete={onTestComplete}
+                onBookmark={onBookmarkWord}
                 blocked={fbOpen}
               />
             </>
