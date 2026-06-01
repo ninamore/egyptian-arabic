@@ -1737,16 +1737,21 @@ export default function App() {
     }
 
     const t = scheduleReminder();
-    // Also check right now if it's past 7pm and no practice
+    return () => clearTimeout(t);
+  }, [userId]);
+
+  // Re-check reminder whenever stats change (catches case where stats load after mount)
+  useEffect(() => {
+    statsRef.current = stats;
+    if (!userId) return;
     const now = new Date();
     if (now.getHours() >= 19) {
       const todayStr = localDateStr();
-      const practiced = (statsRef.current.testHistory||[]).some(h => h.date === todayStr);
-      if (!practiced) setShowReminder(true);
+      const practiced = (stats.testHistory||[]).some(h => h.date === todayStr);
+      if (practiced) setShowReminder(false); // practiced today — hide reminder
+      else setShowReminder(true);
     }
-    return () => clearTimeout(t);
-  }, [userId]);
-  useEffect(() => { statsRef.current = stats; }, [stats]);
+  }, [stats, userId]);
 
   // Session timeout: check when app becomes visible again
   useEffect(() => {
