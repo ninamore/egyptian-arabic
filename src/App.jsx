@@ -1304,20 +1304,22 @@ function VocabCard({ v, color, showTrans, learnFlags, testProgress }) {
 
 // ─── REVIEW FLASHCARDS (Test tab mistakes only) ───────────────────────────────
 function ReviewCards({ testProgress, onUpdate, showTrans }) {
-  const weakVocab = ALL_VOCAB.filter(v=>(testProgress[v.id]?.wrong||0)>0||testProgress[v.id]?.bookmarked);
-  const [deck] = useState(() => shuffle([...weakVocab]));
-  const [idx,setIdx]     = useState(0);
+  const reviewVocab = ALL_VOCAB.filter(v=>
+    (testProgress[v.id]?.wrong||0)>0 || testProgress[v.id]?.bookmarked
+  );
+  const [deck] = useState(() => shuffle([...reviewVocab]));
+  const [idx,setIdx]         = useState(0);
   const [flipped,setFlipped] = useState(false);
-  const [known,setKnown]   = useState(0);
-  const [learning,setLearning] = useState(0);
-  const [done,setDone]   = useState(false);
+  const [removed,setRemoved] = useState(0);
+  const [done,setDone]       = useState(false);
 
-  if (!weakVocab.length) return (
+  if (!reviewVocab.length) return (
     <div style={{padding:32,textAlign:"center"}}>
       <div style={{fontSize:48,marginBottom:12}}>🎉</div>
-      <div style={{fontSize:18,fontWeight:"bold",marginBottom:8}}>No mistakes to review!</div>
+      <div style={{fontSize:18,fontWeight:"bold",marginBottom:8}}>Your Review list is empty!</div>
       <div style={{fontSize:14,color:"#888",lineHeight:1.7}}>
-        Complete some tests first. Words you get wrong in the Test tab will appear here for review.
+        Words you get wrong in tests appear here automatically.<br/>
+        You can also tap 📌 on any test question to add it manually.
       </div>
     </div>
   );
@@ -1326,9 +1328,9 @@ function ReviewCards({ testProgress, onUpdate, showTrans }) {
     <div style={{padding:32,textAlign:"center"}}>
       <div style={{fontSize:52,marginBottom:12}}>✨</div>
       <div style={{fontSize:22,fontWeight:"bold",marginBottom:8}}>Review done!</div>
-      <div style={{fontSize:15,color:"#555",marginBottom:4}}>✅ Got it: <strong>{known}</strong></div>
-      <div style={{fontSize:15,color:"#555",marginBottom:24}}>📚 Still learning: <strong>{learning}</strong></div>
-      <button onClick={()=>{setIdx(0);setFlipped(false);setKnown(0);setLearning(0);setDone(false);}}
+      <div style={{fontSize:15,color:"#555",marginBottom:4}}>🗑 Removed: <strong>{removed}</strong></div>
+      <div style={{fontSize:15,color:"#555",marginBottom:24}}>📚 Still practicing: <strong>{deck.length-removed}</strong></div>
+      <button onClick={()=>{setIdx(0);setFlipped(false);setRemoved(0);setDone(false);}}
         style={{background:"#E8936A",color:"#fff",border:"none",borderRadius:12,padding:"13px 28px",fontSize:15,fontWeight:"bold",cursor:"pointer"}}>
         Go again 🔀
       </button>
@@ -1337,37 +1339,42 @@ function ReviewCards({ testProgress, onUpdate, showTrans }) {
 
   const card = deck[idx];
   const p = testProgress[card.id]||{};
+  const isBookmarked = !!p.bookmarked;
+  const wrongCount = p.wrong||0;
 
-  function mark(isKnown) {
-    const old = testProgress[card.id]||{correct:0,wrong:0,seen:true};
-    const np = {...old};
-    if (isKnown) {
-      np.correct=(np.correct||0)+1;
-      np.wrong=Math.max(0,(np.wrong||0)-1); // reduce wrong → clears from review when 0
-      setKnown(k=>k+1);
-    } else {
-      np.wrong=(np.wrong||0)+1;
-      setLearning(l=>l+1);
-    }
-    onUpdate(card.id, np);
+  function next() {
     if (idx+1>=deck.length) setDone(true);
     else { setIdx(i=>i+1); setFlipped(false); }
   }
 
+  function removeFromReview() {
+    // Remove bookmark and reset wrong count
+    const np = {...p};
+    delete np.bookmarked;
+    np.wrong = 0;
+    onUpdate(card.id, np);
+    setRemoved(r=>r+1);
+    next();
+  }
+
   return (
     <div style={{padding:"16px 16px 20px"}}>
-      <div style={{background:"#fde8e8",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:12,color:"#721c24",lineHeight:1.6}}>
-        🚩 These are words you got wrong in the <strong>Test</strong> tab. Getting them right here reduces their mistake count. When wrong = 0, they leave this list.
+      <div style={{background:"#FFF8E7",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:12,color:"#856404",lineHeight:1.6}}>
+        📌 Your personal practice list. Tap <strong>Remove ✓</strong> when you've truly mastered a word. Tap <strong>Practice again</strong> to keep drilling it.
       </div>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
         <span style={{fontSize:13,color:"#aaa"}}>{idx+1} / {deck.length}</span>
-        <span style={{fontSize:13}}>✅ {known} · 📚 {learning}</span>
+        <span style={{fontSize:13,color:"#888"}}>
+          {isBookmarked ? "📌 bookmarked" : `❌ ${wrongCount} mistake${wrongCount!==1?"s":""}`}
+        </span>
       </div>
+
+      {/* Flashcard */}
       <div style={{background:"#fff",borderRadius:20,padding:28,minHeight:200,
         display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",
         boxShadow:"0 6px 24px rgba(0,0,0,0.10)",border:`3px solid ${card.sessionColor}`,
         cursor:"pointer",textAlign:"center",marginBottom:16}}
-        onClick={()=>{if(!flipped)tts(card.egy);setFlipped(f=>!f);}}>
+        onClick={()=>{if(!flipped)playAudio(card.id,"word");setFlipped(f=>!f);}}>
         <div style={{fontSize:11,color:"#ccc",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>
           {card.sessionEmoji} {card.sessionTitle} · tap to flip
         </div>
@@ -1376,7 +1383,6 @@ function ReviewCards({ testProgress, onUpdate, showTrans }) {
             <div style={{fontSize:36,fontWeight:"bold",direction:"rtl",marginBottom:6}}>{card.egy}</div>
             <div style={{fontSize:13,color:"#7B6FA0",fontWeight:"bold",marginBottom:2}}>{card.egyPron}</div>
             {showTrans&&<div style={{fontSize:13,color:"#bbb",fontStyle:"italic"}}>{card.trans}</div>}
-            <div style={{marginTop:8,fontSize:11,color:"#dc3545"}}>❌ {p.wrong||0} mistake{(p.wrong||0)!==1?"s":""}</div>
           </>
         ):(
           <>
@@ -1386,17 +1392,23 @@ function ReviewCards({ testProgress, onUpdate, showTrans }) {
           </>
         )}
       </div>
-      {!flipped&&<p style={{textAlign:"center",color:"#ccc",fontSize:13}}>Tap to reveal</p>}
-      {flipped&&(
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={()=>mark(false)}
-            style={{flex:1,padding:13,background:"#fde8e8",border:"2px solid #dc3545",borderRadius:12,fontSize:14,cursor:"pointer",fontWeight:"bold",color:"#721c24"}}>
-            📚 Still learning
-          </button>
-          <button onClick={()=>mark(true)}
-            style={{flex:1,padding:13,background:"#d4edda",border:"2px solid #28a745",borderRadius:12,fontSize:14,cursor:"pointer",fontWeight:"bold",color:"#155724"}}>
-            ✅ Got it!
-          </button>
+
+      {!flipped && <p style={{textAlign:"center",color:"#ccc",fontSize:13}}>Tap to reveal</p>}
+
+      {flipped && (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={next}
+              style={{flex:1,padding:13,background:"#f5f5f5",border:"2px solid #ddd",
+                borderRadius:12,fontSize:14,cursor:"pointer",fontWeight:"bold",color:"#555"}}>
+              Practice again →
+            </button>
+            <button onClick={removeFromReview}
+              style={{flex:1,padding:13,background:"#d4edda",border:"2px solid #28a745",
+                borderRadius:12,fontSize:14,cursor:"pointer",fontWeight:"bold",color:"#155724"}}>
+              Remove ✓ Got it
+            </button>
+          </div>
         </div>
       )}
     </div>
