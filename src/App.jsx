@@ -1926,10 +1926,16 @@ export default function App() {
     if (!name) return;
     setSyncing(true);
     const existing = await loadUserProgress(name);
-    if (existing) applyProgress(existing);
+    if (existing) {
+      applyProgress(existing);
+    } else {
+      // New user — save initial empty row so they appear in the db
+      const initial = { learnFlags:{}, testProgress:{}, stats:{totalCorrect:0,totalWrong:0,dayStreak:0,lastPracticeDate:null,testHistory:[]} };
+      await saveUserProgress(name, initial);
+    }
     localSet("egy_user_id", name);
     localSet("egy_progress_cache", existing || {});
-    userIdRef.current = name; // set ref immediately
+    userIdRef.current = name;
     setUserId(name);
     setSyncing(false);
   }
