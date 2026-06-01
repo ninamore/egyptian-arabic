@@ -1307,69 +1307,150 @@ function ReviewCards({ testProgress, onUpdate, showTrans }) {
   const reviewVocab = ALL_VOCAB.filter(v=>
     (testProgress[v.id]?.wrong||0)>0 || testProgress[v.id]?.bookmarked
   );
-  const [deck] = useState(() => shuffle([...reviewVocab]));
-  const [idx,setIdx]         = useState(0);
-  const [flipped,setFlipped] = useState(false);
-  const [removed,setRemoved] = useState(0);
-  const [done,setDone]       = useState(false);
+  const [mode, setMode]         = useState("list");
+  const [selected, setSelected] = useState({});
+  const [deck, setDeck]         = useState([]);
+  const [idx, setIdx]           = useState(0);
+  const [flipped, setFlipped]   = useState(false);
 
-  if (!reviewVocab.length) return (
-    <div style={{padding:32,textAlign:"center"}}>
-      <div style={{fontSize:48,marginBottom:12}}>🎉</div>
-      <div style={{fontSize:18,fontWeight:"bold",marginBottom:8}}>Your Review list is empty!</div>
-      <div style={{fontSize:14,color:"#888",lineHeight:1.7}}>
-        Words you get wrong in tests appear here automatically.<br/>
-        You can also tap 📌 on any test question to add it manually.
+  function startDrill() {
+    const chosen = reviewVocab.filter(v => selected[v.id]);
+    if (!chosen.length) return;
+    setDeck(shuffle([...chosen]));
+    setIdx(0);
+    setFlipped(false);
+    setMode("drill");
+  }
+
+  function toggleSelect(id) {
+    setSelected(s => ({...s, [id]: !s[id]}));
+  }
+
+  function selectAll() {
+    const all = {};
+    reviewVocab.forEach(v => { all[v.id] = true; });
+    setSelected(all);
+  }
+
+  function removeFromReview(vocabId) {
+    const p = testProgress[vocabId]||{};
+    const np = {...p};
+    delete np.bookmarked;
+    np.wrong = 0;
+    onUpdate(vocabId, np);
+  }
+
+  // ── LIST VIEW ──
+  if (mode === "list") {
+    if (!reviewVocab.length) return (
+      <div style={{padding:32,textAlign:"center"}}>
+        <div style={{fontSize:48,marginBottom:12}}>🎉</div>
+        <div style={{fontSize:18,fontWeight:"bold",marginBottom:8}}>Your Review list is empty!</div>
+        <div style={{fontSize:14,color:"#888",lineHeight:1.7}}>
+          Words you get wrong in tests appear here automatically.<br/>
+          You can also tap 📌 on any test question to add it manually.
+        </div>
       </div>
-    </div>
-  );
+    );
 
-  if (done) return (
+    const selectedCount = reviewVocab.filter(v=>selected[v.id]).length;
+
+    return (
+      <div style={{padding:"16px 16px 100px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontSize:13,color:"#555",fontWeight:"bold"}}>
+            📋 {reviewVocab.length} word{reviewVocab.length!==1?"s":""} in Review
+          </div>
+          <button onClick={selectAll}
+            style={{fontSize:12,color:"#7B6FA0",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
+            Select all
+          </button>
+        </div>
+
+        {reviewVocab.map(v => {
+          const p = testProgress[v.id]||{};
+          const isSelected = !!selected[v.id];
+          const isBookmarked = !!p.bookmarked;
+          const wrongCount = p.wrong||0;
+          return (
+            <div key={v.id} style={{background:"#fff",borderRadius:12,padding:"12px 14px",
+              marginBottom:8,boxShadow:"0 2px 6px rgba(0,0,0,0.06)",
+              border:`2px solid ${isSelected?"#7B6FA0":"transparent"}`,
+              display:"flex",alignItems:"center",gap:10}}>
+              <button onClick={()=>toggleSelect(v.id)}
+                style={{width:24,height:24,borderRadius:6,border:`2px solid ${isSelected?"#7B6FA0":"#ddd"}`,
+                  background:isSelected?"#7B6FA0":"#fff",cursor:"pointer",flexShrink:0,
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {isSelected&&<span style={{color:"#fff",fontSize:14}}>✓</span>}
+              </button>
+              <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>toggleSelect(v.id)}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:20,fontWeight:"bold",direction:"rtl"}}>{v.egy}</span>
+                  <span style={{fontSize:11,color:isBookmarked?"#E8936A":"#dc3545"}}>
+                    {isBookmarked?"📌":`❌ ${wrongCount}`}
+                  </span>
+                </div>
+                <div style={{fontSize:12,color:"#888"}}>{v.meaning}</div>
+              </div>
+              <button onClick={()=>removeFromReview(v.id)}
+                style={{background:"none",border:"1px solid #ddd",borderRadius:8,
+                  padding:"4px 8px",fontSize:11,color:"#aaa",cursor:"pointer",
+                  fontFamily:"inherit",flexShrink:0}}>
+                Remove
+              </button>
+            </div>
+          );
+        })}
+
+        {selectedCount > 0 && (
+          <div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",
+            width:"calc(100% - 32px)",maxWidth:398}}>
+            <button onClick={startDrill}
+              style={{width:"100%",padding:14,background:"#7B6FA0",color:"#fff",
+                border:"none",borderRadius:12,fontSize:15,fontWeight:"bold",
+                cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 16px rgba(123,111,160,0.4)"}}>
+              Practice {selectedCount} selected word{selectedCount!==1?"s":""} →
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── DRILL VIEW ──
+  if (idx >= deck.length) return (
     <div style={{padding:32,textAlign:"center"}}>
       <div style={{fontSize:52,marginBottom:12}}>✨</div>
-      <div style={{fontSize:22,fontWeight:"bold",marginBottom:8}}>Review done!</div>
-      <div style={{fontSize:15,color:"#555",marginBottom:4}}>🗑 Removed: <strong>{removed}</strong></div>
-      <div style={{fontSize:15,color:"#555",marginBottom:24}}>📚 Still practicing: <strong>{deck.length-removed}</strong></div>
-      <button onClick={()=>{setIdx(0);setFlipped(false);setRemoved(0);setDone(false);}}
-        style={{background:"#E8936A",color:"#fff",border:"none",borderRadius:12,padding:"13px 28px",fontSize:15,fontWeight:"bold",cursor:"pointer"}}>
-        Go again 🔀
+      <div style={{fontSize:22,fontWeight:"bold",marginBottom:8}}>Session done!</div>
+      <div style={{fontSize:14,color:"#888",marginBottom:24}}>
+        Go back to the list to remove words you've mastered.
+      </div>
+      <button onClick={()=>{ setMode("list"); setSelected({}); }}
+        style={{background:"#7B6FA0",color:"#fff",border:"none",borderRadius:12,
+          padding:"13px 28px",fontSize:15,fontWeight:"bold",cursor:"pointer"}}>
+        ← Back to list
       </button>
     </div>
   );
 
   const card = deck[idx];
   const p = testProgress[card.id]||{};
-  const isBookmarked = !!p.bookmarked;
-  const wrongCount = p.wrong||0;
 
-  function next() {
-    if (idx+1>=deck.length) setDone(true);
-    else { setIdx(i=>i+1); setFlipped(false); }
-  }
-
-  function removeFromReview() {
-    // Remove bookmark and reset wrong count
-    const np = {...p};
-    delete np.bookmarked;
-    np.wrong = 0;
-    onUpdate(card.id, np);
-    setRemoved(r=>r+1);
-    next();
-  }
+  function next() { setIdx(i=>i+1); setFlipped(false); }
 
   return (
     <div style={{padding:"16px 16px 20px"}}>
-      <div style={{background:"#FFF8E7",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:12,color:"#856404",lineHeight:1.6}}>
-        📌 Your personal practice list. Tap <strong>Remove ✓</strong> when you've truly mastered a word. Tap <strong>Practice again</strong> to keep drilling it.
-      </div>
+      <button onClick={()=>setMode("list")}
+        style={{background:"none",border:"none",color:"#7B6FA0",fontSize:13,
+          cursor:"pointer",fontFamily:"inherit",marginBottom:12,padding:0}}>
+        ← Back to list
+      </button>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
         <span style={{fontSize:13,color:"#aaa"}}>{idx+1} / {deck.length}</span>
         <span style={{fontSize:13,color:"#888"}}>
-          {isBookmarked ? "📌 bookmarked" : `❌ ${wrongCount} mistake${wrongCount!==1?"s":""}`}
+          {p.bookmarked?"📌 bookmarked":`❌ ${p.wrong||0} mistake${(p.wrong||0)!==1?"s":""}`}
         </span>
       </div>
-
-      {/* Flashcard */}
       <div style={{background:"#fff",borderRadius:20,padding:28,minHeight:200,
         display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",
         boxShadow:"0 6px 24px rgba(0,0,0,0.10)",border:`3px solid ${card.sessionColor}`,
@@ -1392,30 +1473,25 @@ function ReviewCards({ testProgress, onUpdate, showTrans }) {
           </>
         )}
       </div>
-
-      {!flipped && <p style={{textAlign:"center",color:"#ccc",fontSize:13}}>Tap to reveal</p>}
-
-      {flipped && (
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          <div style={{display:"flex",gap:10}}>
-            <button onClick={next}
-              style={{flex:1,padding:13,background:"#f5f5f5",border:"2px solid #ddd",
-                borderRadius:12,fontSize:14,cursor:"pointer",fontWeight:"bold",color:"#555"}}>
-              Practice again →
-            </button>
-            <button onClick={removeFromReview}
-              style={{flex:1,padding:13,background:"#d4edda",border:"2px solid #28a745",
-                borderRadius:12,fontSize:14,cursor:"pointer",fontWeight:"bold",color:"#155724"}}>
-              Remove ✓ Got it
-            </button>
-          </div>
+      {!flipped&&<p style={{textAlign:"center",color:"#ccc",fontSize:13}}>Tap to reveal</p>}
+      {flipped&&(
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={next}
+            style={{flex:1,padding:13,background:"#f5f5f5",border:"2px solid #ddd",
+              borderRadius:12,fontSize:14,cursor:"pointer",fontWeight:"bold",color:"#555"}}>
+            Practice again →
+          </button>
+          <button onClick={()=>{ removeFromReview(card.id); next(); }}
+            style={{flex:1,padding:13,background:"#d4edda",border:"2px solid #28a745",
+              borderRadius:12,fontSize:14,cursor:"pointer",fontWeight:"bold",color:"#155724"}}>
+            Remove ✓ Got it
+          </button>
         </div>
       )}
     </div>
   );
 }
 
-// ─── DAY LOG COMPONENT ───────────────────────────────────────────────────────
 function DayLog({ date, sessions, totalSessions }) {
   const [open, setOpen] = useState(false);
   // Format date nicely
