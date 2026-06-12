@@ -48,6 +48,17 @@ function localDateStr(date = new Date()) {
     String(date.getDate()).padStart(2,'0');
 }
 
+// Returns the date string for the day before the given YYYY-MM-DD string
+// Uses local time constructor to avoid UTC issues
+function prevDay(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  dt.setDate(dt.getDate() - 1);
+  return dt.getFullYear() + '-' +
+    String(dt.getMonth()+1).padStart(2,'0') + '-' +
+    String(dt.getDate()).padStart(2,'0');
+}
+
 const SESSIONS = [
   {
     id:1, title:"Baby Talk", arabicTitle:"كلام البيبي", emoji:"👶", color:"#E8936A",
@@ -1548,6 +1559,7 @@ export default function App() {
   const [nameInput, setNameInput] = useState("");     // for the name entry screen
   const [syncing, setSyncing]     = useState(false);  // shows sync indicator
   const [showReminder, setShowReminder] = useState(false); // late-day reminder banner
+  const [reminderType, setReminderType] = useState("normal"); // "normal" | "rescue" (missed yesterday)
 
   // Feedback widget state — must be at top, before any early returns
   const [fbOpen, setFbOpen]       = useState(false);
@@ -1633,15 +1645,6 @@ export default function App() {
       const uniqueDays = [...new Set((st.testHistory||[]).map(h=>h.date))]
         .filter(d => d && d.match(/^\d{4}-\d{2}-\d{2}$/))
         .sort((a,b) => b.localeCompare(a));
-
-      function prevDay(dateStr) {
-        const [y,m,d] = dateStr.split('-').map(Number);
-        const dt = new Date(y, m-1, d); // local constructor — no UTC
-        dt.setDate(dt.getDate() - 1);
-        return dt.getFullYear() + '-' +
-          String(dt.getMonth()+1).padStart(2,'0') + '-' +
-          String(dt.getDate()).padStart(2,'0');
-      }
 
       let streak = 0;
       if (uniqueDays.length > 0) {
@@ -1747,16 +1750,49 @@ export default function App() {
     return () => clearTimeout(t);
   }, [userId]);
 
-  // Re-check reminder whenever stats change (catches case where stats load after mount)
+  // Re-check reminder whenever stats change
   useEffect(() => {
     statsRef.current = stats;
     if (!userId) return;
     const now = new Date();
-    if (now.getHours() >= 19) {
-      const todayStr = localDateStr();
-      const practiced = (stats.testHistory||[]).some(h => h.date === todayStr);
-      if (practiced) setShowReminder(false); // practiced today — hide reminder
-      else setShowReminder(true);
+    const todayStr = localDateStr();
+    const yesterdayStr = prevDay(todayStr);
+    const history = stats.testHistory||[];
+    const practicedToday = history.some(h => h.date === todayStr);
+    const practicedYesterday = history.some(h => h.date === yesterdayStr);
+
+    // Apply streak penalty: if missed yesterday AND day before (no rescue taken)
+    // Check if 2 days ago was also missed — meaning rescue window passed
+    const twoDaysAgoStr = prevDay(yesterdayStr);
+    const practiced2DaysAgo = history.some(h => h.date === twoDaysAgoStr);
+    if (!practicedToday && !practicedYesterday && practiced2DaysAgo && (stats.dayStreak||0) > 0) {
+      // Missed rescue window — apply 5-day penalty (saved to Supabase)
+      const penalty = Math.min(5, stats.dayStreak||0);
+      const newStreak = Math.max(0, (stats.dayStreak||0) - penalty);
+      if (newStreak !== stats.dayStreak) {
+        const newStats = {...stats, dayStreak: newStreak};
+        setStats(newStats);
+        statsRef.current = newStats;
+        const snap = { learnFlags, testProgress, stats: newStats };
+        localSet("egy_progress_cache", snap);
+        saveUserProgress(userIdRef.current, snap);
+      }
+    }
+
+    if (practicedToday) {
+      setShowReminder(false);
+      return;
+    }
+    // Show rescue message if missed yesterday but streak > 0
+    if (!practicedYesterday && (stats.dayStreak||0) > 0 && practiced2DaysAgo) {
+      setReminderType("rescue");
+      setShowReminder(true);
+      return;
+    }
+    // Regular reminder after 6pm
+    if (now.getHours() >= 18) {
+      setReminderType("normal");
+      setShowReminder(true);
     }
   }, [stats, userId]);
 
@@ -1859,9 +1895,9 @@ export default function App() {
       if (r.correct===null) continue;
       const old = newTP[r.vocabId]||{correct:0,wrong:0,seen:false};
       if (r.correct===true) {
-        newTP[r.vocabId] = {correct:(old.correct||0)+1, wrong:Math.max(0,(old.wrong||0)-1), seen:true};
+        newTP[r.vocabId] = {...old, correct:(old.correct||0)+1, wrong:Math.max(0,(old.wrong||0)-1), seen:true};
       } else {
-        newTP[r.vocabId] = {correct:old.correct||0, wrong:(old.wrong||0)+1, seen:true};
+        newTP[r.vocabId] = {...old, correct:old.correct||0, wrong:(old.wrong||0)+1, seen:true};
       }
     }
     setTestProgress(newTP);
@@ -2216,7 +2252,7 @@ export default function App() {
                 {getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id]).map((v,i)=>(
                   <VocabCard key={i} v={v} color={activeLearnSession.color} showTrans={showTrans} learnFlags={learnFlags} testProgress={testProgress}/>
                 ))}
-                <button onClick={()=>{ setLearnMode("quiz"); setLearnSessionKey(k=>k+1); sessionStartRef.current=Date.now(); }}
+                <button onClick={()=>{ setLearnMode("quiz"); setLearnSessionKey(k=>k+1); sessionStartRef.current=Date.now(); setShowReminder(false); }}
                   style={{...A.bigBtn,background:activeLearnSession.color,marginTop:8}}>
                   Practice these words →
                 </button>
@@ -2358,7 +2394,7 @@ export default function App() {
                     );
                   })}
                 </div>
-                <button onClick={()=>{ setTestRunning(true); setTestSessionKey(k=>k+1); sessionStartRef.current=Date.now(); }} style={{...A.bigBtn,background:"#7B6FA0"}}>
+                <button onClick={()=>{ setTestRunning(true); setTestSessionKey(k=>k+1); sessionStartRef.current=Date.now(); setShowReminder(false); }} style={{...A.bigBtn,background:"#7B6FA0"}}>
                   Start Test →
                 </button>
               </div>
@@ -2557,17 +2593,28 @@ export default function App() {
         <div style={{position:"fixed", bottom:70, left:"50%", transform:"translateX(-50%)",
           width:"calc(100% - 32px)", maxWidth:398, zIndex:998,
           background:"#dc3545", borderRadius:14, padding:"12px 16px",
-          display:"flex", justifyContent:"space-between", alignItems:"center",
           boxShadow:"0 4px 16px rgba(220,53,69,0.4)"}}>
-          <div>
-            <div style={{color:"#fff",fontWeight:"bold",fontSize:13}}>🔥 يلا! Practice time!</div>
-            <div style={{color:"rgba(255,255,255,0.85)",fontSize:11,marginTop:2}}>
-              You haven't practiced today yet. Don't break your streak!
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+            <div>
+              <div style={{color:"#fff",fontWeight:"bold",fontSize:13}}>
+                {reminderType==="rescue" ? "😬 You missed yesterday!" : "🔥 يلا! Practice time!"}
+              </div>
+              <div style={{color:"rgba(255,255,255,0.85)",fontSize:11,marginTop:2}}>
+                {reminderType==="rescue"
+                  ? `Practice now to save your ${stats.dayStreak}-day streak — last chance!`
+                  : "You haven't practiced today yet. Don't break your streak!"}
+              </div>
             </div>
+            <button onClick={()=>setShowReminder(false)}
+              style={{background:"none",border:"none",color:"rgba(255,255,255,0.7)",
+                fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0}}>✕</button>
           </div>
-          <button onClick={()=>setShowReminder(false)}
-            style={{background:"none",border:"none",color:"rgba(255,255,255,0.7)",
-              fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0}}>✕</button>
+          <button onClick={()=>{ setShowReminder(false); setTab("test"); setTestRunning(true); setTestSessionKey(k=>k+1); sessionStartRef.current=Date.now(); }}
+            style={{width:"100%",padding:"9px 12px",background:"rgba(255,255,255,0.2)",
+              border:"1.5px solid rgba(255,255,255,0.5)",borderRadius:10,
+              color:"#fff",fontWeight:"bold",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+            يلا، let's practice now →
+          </button>
         </div>
       )}
 
