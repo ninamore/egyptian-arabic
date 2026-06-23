@@ -560,6 +560,7 @@ const ALL_SENT_MEANINGS = ALL_VOCAB.map(v => v.sentMeaning);
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
 const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_KEY;
+const VAPID_PUBLIC_KEY = "BDwu1C95RuRl7jLHzxzpk8YNwzAYhGo8wDzXNSWvLP_c8ME8vMUkuK2w2miArLjrlpPDyFrUMi_SxpaPXtfMiFM";
 
 // ─── SUPABASE HELPERS ─────────────────────────────────────────────────────────
 // All progress is stored as a single JSON blob per user in the "progress" table.
@@ -1706,48 +1707,59 @@ export default function App() {
   // Keep refs in sync with state
   useEffect(() => { userIdRef.current = userId; }, [userId]);
 
-  // Push notification setup — request permission once user is logged in
+  // Push notification setup — register service worker + subscribe to push
   useEffect(() => {
     if (!userId) return;
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
-    // Request permission if not yet granted
-    if (Notification.permission === "default") {
-      Notification.requestPermission();
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      console.log("Push notifications not supported on this browser");
+      return;
     }
-  }, [userId]);
 
-  // Schedule daily 7pm reminder notification
-  useEffect(() => {
-    if (!userId) return;
-    if (!("Notification" in window)) return;
+    async function setupPush() {
+      try {
+        // 1. Register the service worker (public/sw.js)
+        const registration = await navigator.serviceWorker.register("/sw.js");
+        console.log("Service worker registered");
 
-    function scheduleReminder() {
-      const now = new Date();
-      const today7pm = new Date();
-      today7pm.setHours(19, 0, 0, 0);
-      // If already past 7pm today, schedule for tomorrow
-      if (now > today7pm) today7pm.setDate(today7pm.getDate() + 1);
-      const msUntil = today7pm - now;
+        // 2. Ask permission if not yet decided
+        if (Notification.permission === "default") {
+          const result = await Notification.requestPermission();
+          if (result !== "granted") return;
+        }
+        if (Notification.permission !== "granted") return;
 
-      return setTimeout(() => {
-        // Check if practiced today
-        const todayStr = localDateStr();
-        const practiced = (statsRef.current.testHistory||[]).some(h => h.date === todayStr);
-        if (!practiced && Notification.permission === "granted") {
-          new Notification("يلا! 🔥 Time to practice your Egyptian Arabic", {
-            body: "Don't break your streak! Just 5 minutes keeps it alive.",
-            icon: "/favicon.ico",
+        // 3. Check if already subscribed
+        let subscription = await registration.pushManager.getSubscription();
+
+        if (!subscription) {
+          // 4. Subscribe using our VAPID public key
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: VAPID_PUBLIC_KEY,
           });
         }
-        // Show in-app banner too
-        if (!practiced) setShowReminder(true);
-        // Reschedule for tomorrow
-        scheduleReminder();
-      }, msUntil);
+
+        // 5. Save the subscription to Supabase so our cron job can find it later
+        await fetch(`${process.env.REACT_APP_SUPABASE_URL}/rest/v1/push_subscriptions`, {
+          method: "POST",
+          headers: {
+            "apikey": process.env.REACT_APP_SUPABASE_KEY,
+            "Authorization": `Bearer ${process.env.REACT_APP_SUPABASE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates",
+          },
+          body: JSON.stringify({
+            user_id: userIdRef.current,
+            subscription: subscription.toJSON(),
+          }),
+        });
+        console.log("Push subscription saved");
+      } catch (err) {
+        console.error("Push setup failed:", err);
+      }
     }
 
-    const t = scheduleReminder();
-    return () => clearTimeout(t);
+    setupPush();
   }, [userId]);
 
   // Re-check reminder whenever stats change
