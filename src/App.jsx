@@ -1740,6 +1740,8 @@ export default function App() {
         }
 
         // 5. Save the subscription to Supabase so our cron job can find it later
+        // Each device has a unique "endpoint" — this lets one user have multiple devices
+        const subJson = subscription.toJSON();
         await fetch(`${process.env.REACT_APP_SUPABASE_URL}/rest/v1/push_subscriptions`, {
           method: "POST",
           headers: {
@@ -1750,10 +1752,11 @@ export default function App() {
           },
           body: JSON.stringify({
             user_id: userIdRef.current,
-            subscription: subscription.toJSON(),
+            subscription: subJson,
+            endpoint: subJson.endpoint,
           }),
         });
-        console.log("Push subscription saved");
+        console.log("Push subscription saved for this device");
       } catch (err) {
         console.error("Push setup failed:", err);
       }
