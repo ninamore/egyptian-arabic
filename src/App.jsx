@@ -1908,34 +1908,6 @@ export default function App() {
   const [exitAction, setExitAction]      = useState(null);   // fn to run if confirmed
 
   // Helper to apply a progress blob to state
-  function buildPlan(tp, lf, ub) {
-    const items = [];
-    // Only count unlocked words as "new" — not locked batch words
-    const unlockedVocab = [
-      ...SESSIONS.flatMap(s => getSessionVocab(s.id, (ub||{})[s.id]||1)),
-      ...GRAMMAR_SESSIONS.flatMap(s => s.vocab),
-      ...SITUATION_SESSIONS.flatMap(s => s.vocab),
-    ];
-    const unseenCount = unlockedVocab.filter(v => { const p = (tp||{})[v.id]; return !p||!p.seen; }).length;
-    if (unseenCount > 0) {
-      const wordList = unlockedVocab.filter(v => { const p=(tp||{})[v.id]; return !p||!p.seen; }).map(v=>v.egy).join(" · ");
-      items.push({id:"new_words", label:`🧪 ${unseenCount} word${unseenCount>1?"s":""} not yet tested`, sublabel:wordList, status:"pending", note:""});
-    }
-    const rc = ALL_VOCAB.filter(v=>((tp||{})[v.id]?.wrong||0)>0).length;
-    if (rc > 0) items.push({id:"review", label:`Review ${rc} word${rc>1?"s":""} in Review tab`, status:"pending", note:""});
-    const lfc = Object.keys(lf||{}).length;
-    if (lfc > 0) items.push({id:"flags", label:`Practice ${lfc} flagged word${lfc>1?"s":""} in Learn`, status:"pending", note:""});
-    items.push({id:"test", label:"Complete one Mixed Test", status:"pending", note:""});
-    const closeToUnlock = SESSIONS.find(s => {
-      const u = (ub||{})[s.id]||1;
-      if (u>=3) return false;
-      const vocab = getSessionVocab(s.id, u);
-      const mastered = vocab.filter(v => { const p=(tp||{})[v.id]; return p&&(p.correct||0)>=2&&(p.wrong||0)===0; }).length;
-      return mastered/vocab.length >= 0.5;
-    });
-    if (closeToUnlock) items.push({id:"unlock", label:`${closeToUnlock.emoji} ${closeToUnlock.title}: close to unlocking next batch!`, status:"pending", note:""});
-    setPlan(items);
-  }
 
   function applyProgress(data) {
     if (!data) return;
@@ -1995,7 +1967,6 @@ export default function App() {
       const ub = {};
       [1,2,3,4,5,6,7,8,9,10,11,12,13].forEach(id => { ub[id] = calcUnlockedBatch(id, data.testProgress); });
       setUnlockedBatches(ub);
-      buildPlan(data.testProgress, data.learnFlags||{}, ub);
     }
   }
 
@@ -2017,7 +1988,6 @@ export default function App() {
           localSet("egy_progress_cache", remote);
         }
       } else {
-        buildPlan({}, {}, {1:1,2:1,3:1,4:1,5:1,6:1,7:1,8:1,9:1,10:1,11:1,12:1,13:1});
         setLoading(false); // Show name entry screen
       }
     }
@@ -2356,31 +2326,7 @@ export default function App() {
 
   // Plan items: { id, label, status: "pending"|"done"|"issue", note }
 
-  function updatePlanItem(id, status) {
-    setPlan(p => p.map(item => item.id === id ? {...item, status} : item));
-    if (status === "issue") setPlanNoteId(id);
-    else setPlanNoteId(null);
-  }
 
-  async function submitPlanNote(id) {
-    const item = plan.find(p => p.id === id);
-    if (!item) return;
-    setPlan(p => p.map(i => i.id === id ? {...i, note: planNoteText} : i));
-    // Save feedback to Supabase
-    await supabaseFetch("feedback", {
-      method: "POST",
-      prefer: "return=minimal",
-      body: JSON.stringify({
-        user_id: userId,
-        page: "Today's Plan",
-        tag: "Plan Issue",
-        note: `[${item.label}]: ${planNoteText}`,
-        created_at: new Date().toISOString(),
-      }),
-    });
-    setPlanNoteId(null);
-    setPlanNoteText("");
-  }
 
   return (
     <div style={A.wrap}
