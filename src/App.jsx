@@ -1880,11 +1880,7 @@ export default function App() {
   const [fbSent, setFbSent]       = useState(false);
   const [fbSending, setFbSending] = useState(false);
 
-  // Today's Plan state — must be at top, before any early returns
-  const [plan, setPlan]           = useState([]);
-  const [planOpen, setPlanOpen]   = useState(true);
-  const [planNoteId, setPlanNoteId]   = useState(null);
-  const [planNoteText, setPlanNoteText] = useState("");
+
 
   // learnFlags: { [vocabId]: true } — mistakes in Learn tab, managed separately
   const [learnFlags, setLearnFlags] = useState({});
@@ -2358,9 +2354,7 @@ export default function App() {
     setFbSending(false);
   }
 
-  // ── TODAY'S PLAN STATE ──
   // Plan items: { id, label, status: "pending"|"done"|"issue", note }
-  // ── TODAY'S PLAN STATE (moved to top) ──
 
   function updatePlanItem(id, status) {
     setPlan(p => p.map(item => item.id === id ? {...item, status} : item));
@@ -2421,78 +2415,6 @@ export default function App() {
           {/* Session list */}
           {!activeLearnSession && (
             <div style={{padding:"12px 16px"}}>
-
-              {/* ── TODAY'S PLAN ── */}
-              <div style={{background:"#1a1a1a",borderRadius:14,marginBottom:14,overflow:"hidden"}}>
-                <button onClick={()=>setPlanOpen(o=>!o)}
-                  style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
-                    padding:"12px 16px",background:"none",border:"none",cursor:"pointer",color:"#fff",fontFamily:"inherit"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:16}}>📋</span>
-                    <span style={{fontWeight:"bold",fontSize:14}}>Today's Plan</span>
-                    <span style={{fontSize:11,color:"#888",marginLeft:4}}>
-                      {plan.filter(p=>p.status==="done").length}/{plan.length} done
-                    </span>
-                  </div>
-                  <span style={{color:"#666",fontSize:14}}>{planOpen?"▲":"▼"}</span>
-                </button>
-
-                {planOpen && (
-                  <div style={{padding:"0 16px 14px"}}>
-                    <p style={{fontSize:11,color:"#666",margin:"0 0 10px",lineHeight:1.5}}>
-                      Check ✅ when done, ❌ if something went wrong. Your feedback goes straight to me.
-                    </p>
-                    {plan.map(item => (
-                      <div key={item.id} style={{marginBottom:8}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8,background:"#2c2c2c",borderRadius:10,padding:"10px 12px"}}>
-                          <div style={{flex:1}}>
-                          <div style={{fontSize:13,color:item.status==="done"?"#28a745":item.status==="issue"?"#dc3545":"#ccc",
-                            textDecoration:item.status==="done"?"line-through":"none"}}>
-                            {item.label}
-                          </div>
-                          {item.sublabel&&<div style={{fontSize:11,color:"#E8936A",marginTop:2,direction:"rtl",lineHeight:1.6}}>{item.sublabel}</div>}
-                        </div>
-                          <div style={{display:"flex",gap:6}}>
-                            <button onClick={()=>updatePlanItem(item.id, item.status==="done"?"pending":"done")}
-                              style={{background:item.status==="done"?"#28a745":"#3d3d3d",border:"none",borderRadius:8,
-                                width:32,height:32,fontSize:16,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                              ✅
-                            </button>
-                            <button onClick={()=>updatePlanItem(item.id, item.status==="issue"?"pending":"issue")}
-                              style={{background:item.status==="issue"?"#dc3545":"#3d3d3d",border:"none",borderRadius:8,
-                                width:32,height:32,fontSize:16,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                              ❌
-                            </button>
-                          </div>
-                        </div>
-                        {planNoteId === item.id && (
-                          <div style={{marginTop:6,display:"flex",gap:6}}>
-                            <input
-                              autoFocus
-                              placeholder="What went wrong?"
-                              value={planNoteText}
-                              onChange={e=>setPlanNoteText(e.target.value)}
-                              onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")submitPlanNote(item.id);}}
-                              style={{flex:1,padding:"8px 10px",fontSize:12,border:"1.5px solid #dc3545",
-                                borderRadius:8,fontFamily:"inherit",outline:"none",background:"#fff"}}
-                            />
-                            <button onClick={()=>submitPlanNote(item.id)}
-                              style={{padding:"8px 12px",background:"#dc3545",color:"#fff",border:"none",
-                                borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:"bold",whiteSpace:"nowrap"}}>
-                              Send ↗
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {plan.every(p=>p.status!=="pending") && (
-                      <div style={{textAlign:"center",color:"#E8936A",fontSize:13,marginTop:8,fontWeight:"bold"}}>
-                        🌟 يلا — all done for today!
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
 
               <p style={{fontSize:13,color:"#555",lineHeight:1.7,marginBottom:14,background:"#FFF8E7",borderRadius:10,padding:"10px 14px"}}>
                 <strong>How to use Learn:</strong> Read each word, tap ▼ to expand the example sentence, then tap <em>Practice these words</em> to quiz yourself. Words you get wrong get a 🚩 — they'll be prioritized next time.
