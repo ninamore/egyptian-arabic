@@ -48,17 +48,6 @@ function localDateStr(date = new Date()) {
     String(date.getDate()).padStart(2,'0');
 }
 
-// Returns the date string for the day before the given YYYY-MM-DD string
-// Uses local time constructor to avoid UTC issues
-function prevDay(dateStr) {
-  const [y,m,d] = dateStr.split('-').map(Number);
-  const dt = new Date(y, m-1, d);
-  dt.setDate(dt.getDate() - 1);
-  return dt.getFullYear() + '-' +
-    String(dt.getMonth()+1).padStart(2,'0') + '-' +
-    String(dt.getDate()).padStart(2,'0');
-}
-
 const SESSIONS = [
   {
     id:1, title:"Baby Talk", arabicTitle:"كلام البيبي", emoji:"👶", color:"#E8936A",
@@ -546,21 +535,336 @@ function calcUnlockedBatch(sessionId, testProgress) {
   return 3;
 }
 
-const ALL_VOCAB = SESSIONS.flatMap(s => {
-  const extra = EXTRA_VOCAB[s.id];
-  return [
-    ...s.vocab,
-    ...extra.batch2,
-    ...extra.batch3,
-  ].map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}));
-});
+// ─── GRAMMAR SESSIONS ────────────────────────────────────────────────────────
+const GRAMMAR_SESSIONS = [
+  {id:"g1",title:"Negation — مش",arabicTitle:"النفي",emoji:"🚫",color:"#E85D5D",type:"grammar",
+    explanation:{
+      rule:"To say 'not' in Egyptian Arabic, use مش (mesh) before the word. It works for nouns, adjectives, and verbs — much simpler than Fusha!",
+      pattern:"مش + [word/verb]",
+      examples:[
+        {egy:"مش عارفة",trans:"mesh aarfa",meaning:"I don't know (woman)"},
+        {egy:"مش كويس",trans:"mesh kwayyes",meaning:"Not good / not well"},
+        {egy:"مش دلوقتي",trans:"mesh dilwaqti",meaning:"Not right now"},
+        {egy:"مش بحب",trans:"mesh bahibb",meaning:"I don't like"},
+        {egy:"مش هروح",trans:"mesh harooh",meaning:"I won't go"},
+      ],
+      tip:"مش is your best friend! Unlike Fusha which has different negation for different verb types, مش works everywhere in Egyptian Arabic.",
+    },
+    vocab:[
+      {id:"vg1_1",egy:"مش عارفة",trans:"mesh aarfa",egyPron:"مِش عارفة",meaning:"I don't know (woman)",sentence:"مش عارفة فين حطيتيه",sentTrans:"mesh aarfa fein hatteyti",sentMeaning:"I don't know where I put it",farsi:"نمیدونم"},
+      {id:"vg1_2",egy:"مش كويس",trans:"mesh kwayyes",egyPron:"مِش كُوَيِّس",meaning:"Not good / not well",sentence:"البيبي مش كويس النهارده",sentTrans:"el-baby mesh kwayyes en-naharda",sentMeaning:"The baby is not well today",farsi:"خوب نیست"},
+      {id:"vg1_3",egy:"مش دلوقتي",trans:"mesh dilwaqti",egyPron:"مِش دِلوَقتي",meaning:"Not right now",sentence:"مش دلوقتي، أنا تعبانة",sentTrans:"mesh dilwaqti, ana taabana",sentMeaning:"Not right now, I'm tired",farsi:"الان نه"},
+      {id:"vg1_4",egy:"مش بحب",trans:"mesh bahibb",egyPron:"مِش بَحِب",meaning:"I don't like",sentence:"مش بحب الدوشة",sentTrans:"mesh bahibb el-dosha",sentMeaning:"I don't like the noise",farsi:"دوست ندارم"},
+      {id:"vg1_5",egy:"مش هروح",trans:"mesh harooh",egyPron:"مِش هَروح",meaning:"I won't go",sentence:"مش هروح النهارده، تعبانة",sentTrans:"mesh harooh en-naharda, taabana",sentMeaning:"I won't go today, I'm tired",farsi:"نمیرم"},
+      {id:"vg1_6",egy:"مش فاهمة",trans:"mesh fahma",egyPron:"مِش فاهمة",meaning:"I don't understand (woman)",sentence:"مش فاهمة، قوليلي تاني",sentTrans:"mesh fahma, oollili tani",sentMeaning:"I don't understand, tell me again",farsi:"نمیفهمم"},
+      {id:"vg1_7",egy:"مش مشغول",trans:"mesh mashghool",egyPron:"مِش مَشغول",meaning:"Not busy",sentence:"مش مشغول دلوقتي؟",sentTrans:"mesh mashghool dilwaqti?",sentMeaning:"Not busy right now?",farsi:"مشغول نیست"},
+      {id:"vg1_8",egy:"مش لازم",trans:"mesh laazim",egyPron:"مِش لازِم",meaning:"Not necessary / don't have to",sentence:"مش لازم، أنا هعمله",sentTrans:"mesh laazim, ana haamiluh",sentMeaning:"No need, I'll do it",farsi:"لازم نیست"},
+    ],
+  },
+  {id:"g2",title:"Present Tense — بـ",arabicTitle:"المضارع",emoji:"⚡",color:"#5B8FA6",type:"grammar",
+    explanation:{
+      rule:"Egyptian Arabic present tense uses the prefix بـ (b-) before the verb. If you hear a verb starting with بـ, someone is telling you what they do regularly or what's happening now.",
+      pattern:"بـ + [verb root]",
+      examples:[
+        {egy:"بحب",trans:"bahibb",meaning:"I love / I like"},
+        {egy:"بروح",trans:"barooh",meaning:"I go"},
+        {egy:"بشوف",trans:"bashooof",meaning:"I see / I watch"},
+        {egy:"بتكلم",trans:"batkallim",meaning:"I talk / I speak"},
+        {egy:"بنام",trans:"banaam",meaning:"I sleep"},
+      ],
+      tip:"In Fusha: أذهب (azhabu). In Egyptian: بروح (barooh). The بـ prefix is the key marker of Egyptian present tense — you'll hear it constantly.",
+    },
+    vocab:[
+      {id:"vg2_1",egy:"بحب",trans:"bahibb",egyPron:"بَحِب",meaning:"I love / I like",sentence:"بحب العربي المصري",sentTrans:"bahibb el-arabi el-masri",sentMeaning:"I love Egyptian Arabic",farsi:"دوست دارم"},
+      {id:"vg2_2",egy:"بروح",trans:"barooh",egyPron:"بَروح",meaning:"I go",sentence:"بروح الشغل كل يوم",sentTrans:"barooh el-shughl kull yoom",sentMeaning:"I go to work every day",farsi:"میرم"},
+      {id:"vg2_3",egy:"بشوف",trans:"bashooof",egyPron:"بَشوف",meaning:"I see / I watch",sentence:"بشوف التليفزيون بالليل",sentTrans:"bashooof el-tilifiziyoon bil-leil",sentMeaning:"I watch TV at night",farsi:"میبینم"},
+      {id:"vg2_4",egy:"بتكلم",trans:"batkallim",egyPron:"بَتكَلَّم",meaning:"I speak / I talk",sentence:"بتكلم عربي شوية",sentTrans:"batkallim arabi shwayya",sentMeaning:"I speak a little Arabic",farsi:"حرف میزنم"},
+      {id:"vg2_5",egy:"بنام",trans:"banaam",egyPron:"بَنام",meaning:"I sleep",sentence:"بنام بدري كل يوم",sentTrans:"banaam badri kull yoom",sentMeaning:"I sleep early every day",farsi:"میخوابم"},
+      {id:"vg2_6",egy:"بحاول",trans:"bahaawel",egyPron:"بَحاوِل",meaning:"I try",sentence:"بحاول أتعلم كل يوم",sentTrans:"bahaawel ateaallem kull yoom",sentMeaning:"I try to learn every day",farsi:"تلاش میکنم"},
+      {id:"vg2_7",egy:"بفتكر",trans:"baftikir",egyPron:"بَفتِكِر",meaning:"I think / I remember",sentence:"بفتكر فيك طول الوقت",sentTrans:"baftikir fiik tool el-waqt",sentMeaning:"I think of you all the time",farsi:"فکر میکنم"},
+      {id:"vg2_8",egy:"بحس",trans:"baHiss",egyPron:"بَحِس",meaning:"I feel",sentence:"بحس إني تعبانة أوي",sentTrans:"baHiss inni taabana awi",sentMeaning:"I feel very tired",farsi:"حس میکنم"},
+    ],
+  },
+  {id:"g3",title:"Future Tense — هـ",arabicTitle:"المستقبل",emoji:"🔮",color:"#7B6FA0",type:"grammar",
+    explanation:{
+      rule:"To talk about the future in Egyptian Arabic, add هـ (ha-) before the verb. Combine with مش for negative future: مش + هـ + verb = won't.",
+      pattern:"هـ + [verb root]",
+      examples:[
+        {egy:"هروح",trans:"harooh",meaning:"I will go"},
+        {egy:"هشوف",trans:"hashooof",meaning:"I will see"},
+        {egy:"هنام",trans:"hanaam",meaning:"I will sleep"},
+        {egy:"مش هروح",trans:"mesh harooh",meaning:"I won't go"},
+        {egy:"هنتكلم",trans:"hanetekallem",meaning:"We will talk"},
+      ],
+      tip:"بـ = present (now/regularly), هـ = future (will happen). These two prefixes handle most of Egyptian verb tense — much simpler than Fusha!",
+    },
+    vocab:[
+      {id:"vg3_1",egy:"هروح",trans:"harooh",egyPron:"هَروح",meaning:"I will go",sentence:"هروح السوق بعدين",sentTrans:"harooh el-sooq baadein",sentMeaning:"I will go to the market later",farsi:"میرم"},
+      {id:"vg3_2",egy:"هشوف",trans:"hashooof",egyPron:"هَشوف",meaning:"I will see / check",sentence:"هشوف وأقولك",sentTrans:"hashooof wa-aoollak",sentMeaning:"I'll check and tell you",farsi:"میبینم"},
+      {id:"vg3_3",egy:"هنام",trans:"hanaam",egyPron:"هَنام",meaning:"I will sleep",sentence:"هنام بدري النهارده",sentTrans:"hanaam badri en-naharda",sentMeaning:"I'll sleep early today",farsi:"میخوابم"},
+      {id:"vg3_4",egy:"هنتكلم",trans:"hanetekallem",egyPron:"هَنِتكَلَّم",meaning:"We will talk",sentence:"هنتكلم بعدين عن ده",sentTrans:"hanetekallem baadein aan da",sentMeaning:"We'll talk about this later",farsi:"حرف میزنیم"},
+      {id:"vg3_5",egy:"هعمل",trans:"haamil",egyPron:"هَعمِل",meaning:"I will do / make",sentence:"هعمل الأكل دلوقتي",sentTrans:"haamil el-akl dilwaqti",sentMeaning:"I'll make the food now",farsi:"انجام میدم"},
+      {id:"vg3_6",egy:"هيجي",trans:"heyigi",egyPron:"هَيجي",meaning:"He will come",sentence:"هيجي الساعة كام؟",sentTrans:"heyigi el-saaa kaam?",sentMeaning:"What time will he come?",farsi:"میاد"},
+      {id:"vg3_7",egy:"مش هنساك",trans:"mesh hansaak",egyPron:"مِش هَنساك",meaning:"I won't forget you",sentence:"مش هنساك أبداً",sentTrans:"mesh hansaak abadan",sentMeaning:"I'll never forget you",farsi:"فراموشت نمیکنم"},
+      {id:"vg3_8",egy:"هنشوفك",trans:"hanshoofak",egyPron:"هَنشوفَك",meaning:"We'll see you",sentence:"هنشوفك إن شاء الله",sentTrans:"hanshoofak inshallah",sentMeaning:"We'll see you, God willing",farsi:"میبینمت"},
+    ],
+  },
+  {id:"g4",title:"Commands",arabicTitle:"الأوامر",emoji:"👆",color:"#C4873A",type:"grammar",
+    explanation:{
+      rule:"Egyptian commands are direct and short. Masculine (to a man): bare verb. Feminine (to a woman): add ي at the end. Plural (to a group): add وا.",
+      pattern:"verb (m) / verb+ي (f) / verb+وا (pl)",
+      examples:[
+        {egy:"روح / روحي",trans:"rooh / roohi",meaning:"Go! (m/f)"},
+        {egy:"تعالى / تعالي",trans:"taala / taali",meaning:"Come! (m/f)"},
+        {egy:"قوم / قومي",trans:"qoom / qoomi",meaning:"Get up! (m/f)"},
+        {egy:"سيب / سيبي",trans:"seeb / seebi",meaning:"Leave it! (m/f)"},
+        {egy:"بص / بصي",trans:"boss / bossi",meaning:"Look! (m/f)"},
+      ],
+      tip:"Since you're a woman talking to your husband (man), use the masculine form. Talking to your baby? Just use the short form — babies don't care about grammar!",
+    },
+    vocab:[
+      {id:"vg4_1",egy:"تعالى / تعالي",trans:"taala / taali",egyPron:"تَعالى / تَعالي",meaning:"Come here! (m/f)",sentence:"تعالى هنا بقى!",sentTrans:"taala hena baqa!",sentMeaning:"Come here already!",farsi:"بیا"},
+      {id:"vg4_2",egy:"قوم / قومي",trans:"qoom / qoomi",egyPron:"قوم / قومي",meaning:"Get up! (m/f)",sentence:"قومي يا حبيبتي، الصبح!",sentTrans:"qoomi ya habibti, el-subh!",sentMeaning:"Get up my love, it's morning!",farsi:"پاشو"},
+      {id:"vg4_3",egy:"سيب / سيبي",trans:"seeb / seebi",egyPron:"سيب / سيبي",meaning:"Leave it (m/f)",sentence:"سيب ده مش مهم",sentTrans:"seeb da mesh muhimm",sentMeaning:"Leave it, it doesn't matter",farsi:"ولش کن"},
+      {id:"vg4_4",egy:"بص / بصي",trans:"boss / bossi",egyPron:"بُص / بُصي",meaning:"Look! (m/f)",sentence:"بصي على البيبي!",sentTrans:"bossi ala el-baby!",sentMeaning:"Look at the baby!",farsi:"نگاه کن"},
+      {id:"vg4_5",egy:"اصبر / اصبري",trans:"esbar / esbari",egyPron:"اِصبَر / اِصبَري",meaning:"Be patient (m/f)",sentence:"اصبري شوية يا حبيبتي",sentTrans:"esbari shwayya ya habibti",sentMeaning:"Be patient a little, my love",farsi:"صبر کن"},
+      {id:"vg4_6",egy:"كل / كلي",trans:"kol / koli",egyPron:"كُل / كُلي",meaning:"Eat! (m/f)",sentence:"كلي بقى، الأكل بيبرد",sentTrans:"koli baqa, el-akl beyebrad",sentMeaning:"Eat already, the food is getting cold",farsi:"بخور"},
+      {id:"vg4_7",egy:"نام / نامي",trans:"naam / naami",egyPron:"نام / نامي",meaning:"Sleep! (m/f)",sentence:"نامي يا بيبي، يلا",sentTrans:"naami ya baby, yalla",sentMeaning:"Sleep baby, come on",farsi:"بخواب"},
+      {id:"vg4_8",egy:"قول / قولي",trans:"ool / ooli",egyPron:"قول / قولي",meaning:"Say / tell (m/f)",sentence:"قوليلي إيه اللي حصل",sentTrans:"oollili eih elli hasal",sentMeaning:"Tell me what happened",farsi:"بگو"},
+    ],
+  },
+  {id:"g5",title:"Questions",arabicTitle:"الأسئلة",emoji:"❓",color:"#5B8A6E",type:"grammar",
+    explanation:{
+      rule:"Egyptian question words are short and punchy. You can put them at the END of a sentence — very natural in conversation. Rising intonation turns any statement into a yes/no question.",
+      pattern:"statement + ؟ OR question word + statement",
+      examples:[
+        {egy:"فين",trans:"fein",meaning:"Where?"},
+        {egy:"إيه",trans:"eih",meaning:"What?"},
+        {egy:"مين",trans:"meen",meaning:"Who?"},
+        {egy:"إمتى",trans:"emta",meaning:"When?"},
+        {egy:"ليه",trans:"leih",meaning:"Why?"},
+      ],
+      tip:"فين is incredibly useful. فين الموبايل؟ فين الريموت؟ فين جوزي؟ — learn it and use it immediately!",
+    },
+    vocab:[
+      {id:"vg5_1",egy:"فين؟",trans:"fein?",egyPron:"فين؟",meaning:"Where?",sentence:"فين الموبايل بقى؟",sentTrans:"fein el-mobaail baqa?",sentMeaning:"Where is the phone already?",farsi:"کجا؟"},
+      {id:"vg5_2",egy:"إيه ده؟",trans:"eih da?",egyPron:"إيه ده؟",meaning:"What is this?",sentence:"إيه ده؟ ده جديد؟",sentTrans:"eih da? da gdeed?",sentMeaning:"What is this? Is it new?",farsi:"این چیه؟"},
+      {id:"vg5_3",egy:"مين ده؟",trans:"meen da?",egyPron:"مين ده؟",meaning:"Who is this?",sentence:"مين اللي اتصل؟",sentTrans:"meen elli ittasal?",sentMeaning:"Who called?",farsi:"این کیه؟"},
+      {id:"vg5_4",egy:"إمتى؟",trans:"emta?",egyPron:"إِمتى؟",meaning:"When?",sentence:"إمتى هترجع؟",sentTrans:"emta hatergaa?",sentMeaning:"When will you come back?",farsi:"کی؟"},
+      {id:"vg5_5",egy:"ليه؟",trans:"leih?",egyPron:"ليه؟",meaning:"Why?",sentence:"ليه بتعمل كده؟",sentTrans:"leih biteaamil keda?",sentMeaning:"Why are you doing this?",farsi:"چرا؟"},
+      {id:"vg5_6",egy:"إزيك؟",trans:"izzayyak?",egyPron:"إِزَيَّك؟",meaning:"How are you? (to man)",sentence:"إزيك يا حبيبي؟ كويس؟",sentTrans:"izzayyak ya habibi? kwayyes?",sentMeaning:"How are you my love? Good?",farsi:"چطوری؟"},
+      {id:"vg5_7",egy:"بكام؟",trans:"bekaam?",egyPron:"بِكام؟",meaning:"How much?",sentence:"ده بكام؟ غالي أوي!",sentTrans:"da bekaam? ghali awi!",sentMeaning:"How much is this? So expensive!",farsi:"چقدر؟"},
+      {id:"vg5_8",egy:"عامل إيه؟",trans:"aamel eih?",egyPron:"عامِل إيه؟",meaning:"How are you doing? (to man)",sentence:"عامل إيه النهارده؟",sentTrans:"aamel eih en-naharda?",sentMeaning:"How are you doing today?",farsi:"حالت چطوره؟"},
+    ],
+  },
+  {id:"g6",title:"Possession — عند / معايا",arabicTitle:"الملكية",emoji:"🤲",color:"#B5734A",type:"grammar",
+    explanation:{
+      rule:"عند (aand) means 'have' in the sense of ownership. معـ (maa-) means 'have with me/you' — physically on your person right now. مفيش means 'there isn't any'.",
+      pattern:"عند + [suffix] OR معـ + [suffix]",
+      examples:[
+        {egy:"عندي",trans:"aandi",meaning:"I have (own)"},
+        {egy:"عندك",trans:"aandak",meaning:"You have (m)"},
+        {egy:"معايا",trans:"maaya",meaning:"I have (with me now)"},
+        {egy:"معاك",trans:"maak",meaning:"You have (with you now)"},
+        {egy:"مفيش",trans:"mafeesh",meaning:"There isn't / I don't have any"},
+      ],
+      tip:"عندي موبايل = I own a phone. معايا موبايل = I have my phone on me right now. مفيش فلوس = there's no money.",
+    },
+    vocab:[
+      {id:"vg6_1",egy:"عندي",trans:"aandi",egyPron:"عَندي",meaning:"I have",sentence:"عندي سؤال مهم",sentTrans:"aandi soal muhimm",sentMeaning:"I have an important question",farsi:"دارم"},
+      {id:"vg6_2",egy:"عندك",trans:"aandak",egyPron:"عَندَك",meaning:"You have (m) / Do you have?",sentence:"عندك وقت دلوقتي؟",sentTrans:"aandak waqt dilwaqti?",sentMeaning:"Do you have time right now?",farsi:"داری؟"},
+      {id:"vg6_3",egy:"معايا",trans:"maaya",egyPron:"مَعايا",meaning:"I have (with me)",sentence:"مفيش معايا فلوس دلوقتي",sentTrans:"mafeesh maaya feloos dilwaqti",sentMeaning:"I don't have money on me right now",farsi:"پیشمه"},
+      {id:"vg6_4",egy:"معاك",trans:"maak",egyPron:"مَعاك",meaning:"You have (with you)",sentence:"معاك المفتاح؟",sentTrans:"maak el-muftaah?",sentMeaning:"Do you have the key on you?",farsi:"پیشته"},
+      {id:"vg6_5",egy:"مفيش",trans:"mafeesh",egyPron:"مَفيش",meaning:"There isn't / none",sentence:"مفيش وقت دلوقتي",sentTrans:"mafeesh waqt dilwaqti",sentMeaning:"There's no time right now",farsi:"نیست — ندارم"},
+      {id:"vg6_6",egy:"عنده",trans:"aandu",egyPron:"عَندُه",meaning:"He has",sentence:"عنده اجتماع النهارده",sentTrans:"aandu igtimaa en-naharda",sentMeaning:"He has a meeting today",farsi:"داره"},
+      {id:"vg6_7",egy:"عندنا",trans:"aandina",egyPron:"عَندِنا",meaning:"We have",sentence:"عندنا ضيوف الليلة",sentTrans:"aandina duyoof el-leila",sentMeaning:"We have guests tonight",farsi:"داریم"},
+      {id:"vg6_8",egy:"مفيش مشكلة",trans:"mafeesh mushkila",egyPron:"مَفيش مُشكِلة",meaning:"No problem",sentence:"مفيش مشكلة، معلش",sentTrans:"mafeesh mushkila, maalesh",sentMeaning:"No problem, never mind",farsi:"مشکلی نیست"},
+    ],
+  },
+  {id:"g7",title:"Past Tense",arabicTitle:"الماضي",emoji:"⏮️",color:"#4A7A9B",type:"grammar",
+    explanation:{
+      rule:"Past tense uses suffixes added to the verb root. For 'I' (female speaker): add تِ (ti). For 'he': no suffix. For 'she': add ت. Close to Fusha past tense!",
+      pattern:"verb root + suffix",
+      examples:[
+        {egy:"رحتِ",trans:"rohti",meaning:"I went (woman)"},
+        {egy:"شفتِ",trans:"shofti",meaning:"I saw (woman)"},
+        {egy:"أكلتِ",trans:"akalti",meaning:"I ate (woman)"},
+        {egy:"راح",trans:"raah",meaning:"He went"},
+        {egy:"رحنا",trans:"rohna",meaning:"We went"},
+      ],
+      tip:"As a woman, add تِ (ti) to almost any verb for 'I did'. رحتِ، شفتِ، أكلتِ، نمتِ — once you get the pattern, you can make past tense of almost any verb!",
+    },
+    vocab:[
+      {id:"vg7_1",egy:"رحتِ",trans:"rohti",egyPron:"رُحتِ",meaning:"I went (woman)",sentence:"رحتِ السوق إمبارح",sentTrans:"rohti el-sooq imbaariH",sentMeaning:"I went to the market yesterday",farsi:"رفتم"},
+      {id:"vg7_2",egy:"شفتِ",trans:"shofti",egyPron:"شُفتِ",meaning:"I saw (woman)",sentence:"شفتِ الفيلم؟ كان حلو؟",sentTrans:"shofti el-film? kaan helw?",sentMeaning:"Did you see the movie? Was it good?",farsi:"دیدم"},
+      {id:"vg7_3",egy:"أكلتِ",trans:"akalti",egyPron:"أكَلتِ",meaning:"I ate (woman)",sentence:"أكلتِ؟ لأ، لسه",sentTrans:"akalti? la, lessa",sentMeaning:"Did you eat? No, not yet",farsi:"خوردم"},
+      {id:"vg7_4",egy:"نمتِ",trans:"nimti",egyPron:"نِمتِ",meaning:"I slept (woman)",sentence:"نمتِ كويس؟ لأ، البيبي صحّاني",sentTrans:"nimti kwayyes? la, el-baby sahhani",sentMeaning:"Did you sleep well? No, the baby woke me up",farsi:"خوابیدم"},
+      {id:"vg7_5",egy:"راح",trans:"raah",egyPron:"راح",meaning:"He went",sentence:"راح الشغل من الصبح",sentTrans:"raah el-shughl min el-subh",sentMeaning:"He went to work since morning",farsi:"رفت"},
+      {id:"vg7_6",egy:"رحنا",trans:"rohna",egyPron:"رُحنا",meaning:"We went",sentence:"رحنا المطعم إمبارح",sentTrans:"rohna el-mataam imbaariH",sentMeaning:"We went to the restaurant yesterday",farsi:"رفتیم"},
+      {id:"vg7_7",egy:"كان",trans:"kaan",egyPron:"كان",meaning:"He/it was",sentence:"كان حلو أوي!",sentTrans:"kaan helw awi!",sentMeaning:"It was so nice!",farsi:"بود"},
+      {id:"vg7_8",egy:"كنتِ",trans:"konti",egyPron:"كُنتِ",meaning:"I was (woman)",sentence:"كنتِ فين طول الوقت ده؟",sentTrans:"konti fein tool el-waqt da?",sentMeaning:"Where have you been all this time?",farsi:"بودم"},
+    ],
+  },
+  {id:"g8",title:"Adjectives m/f",arabicTitle:"الصفات",emoji:"🎭",color:"#9B6BB5",type:"grammar",
+    explanation:{
+      rule:"Adjectives change based on gender. Feminine adjectives usually add ة (a) at the end. As a woman describing yourself, use the feminine form.",
+      pattern:"adjective (m) / adjective+ة (f)",
+      examples:[
+        {egy:"تعبان / تعبانة",trans:"taabaan / taabana",meaning:"Tired (m/f)"},
+        {egy:"مبسوط / مبسوطة",trans:"mabsoot / mabsoota",meaning:"Happy (m/f)"},
+        {egy:"جميل / جميلة",trans:"gameel / gameela",meaning:"Beautiful (m/f)"},
+        {egy:"كبير / كبيرة",trans:"kibiir / kibiira",meaning:"Big/old (m/f)"},
+        {egy:"جديد / جديدة",trans:"gideed / gideeda",meaning:"New (m/f)"},
+      ],
+      tip:"As a woman talking about yourself: أنا تعبانة، أنا مبسوطة، أنا زعلانة. About your husband: هو تعبان، هو مبسوط. The ة ending marks you as a female speaker!",
+    },
+    vocab:[
+      {id:"vg8_1",egy:"تعبانة",trans:"taabana",egyPron:"تَعبانة",meaning:"Tired (woman)",sentence:"أنا تعبانة أوي النهارده",sentTrans:"ana taabana awi en-naharda",sentMeaning:"I'm very tired today",farsi:"خسته‌ام"},
+      {id:"vg8_2",egy:"مبسوطة",trans:"mabsoota",egyPron:"مَبسوطة",meaning:"Happy (woman)",sentence:"أنا مبسوطة جداً",sentTrans:"ana mabsoota giddan",sentMeaning:"I'm very happy",farsi:"خوشحالم"},
+      {id:"vg8_3",egy:"زعلانة",trans:"zaalaana",egyPron:"زَعلانة",meaning:"Upset (woman)",sentence:"أنا زعلانة منك شوية",sentTrans:"ana zaalaana minnak shwayya",sentMeaning:"I'm a little upset with you",farsi:"ناراحتم"},
+      {id:"vg8_4",egy:"جميلة",trans:"gameela",egyPron:"جَميلة",meaning:"Beautiful (f)",sentence:"إنتِ جميلة أوي يا نينا",sentTrans:"inti gameela awi ya Nina",sentMeaning:"You're so beautiful, Nina",farsi:"زیباست"},
+      {id:"vg8_5",egy:"جديدة",trans:"gideeda",egyPron:"جِديدة",meaning:"New (f)",sentence:"دي حاجة جديدة!",sentTrans:"di haaga gideeda!",sentMeaning:"This is something new!",farsi:"جدیده"},
+      {id:"vg8_6",egy:"كويسة",trans:"kwayyesa",egyPron:"كُوَيِّسة",meaning:"Good (f)",sentence:"الفكرة دي كويسة أوي",sentTrans:"el-fikra di kwayyesa awi",sentMeaning:"This idea is very good",farsi:"خوبه"},
+      {id:"vg8_7",egy:"قلقانة",trans:"alqaana",egyPron:"قَلقانة",meaning:"Worried (woman)",sentence:"أنا قلقانة عليه أوي",sentTrans:"ana alqaana aleiih awi",sentMeaning:"I'm very worried about him",farsi:"نگرانم"},
+      {id:"vg8_8",egy:"فرحانة",trans:"farhaana",egyPron:"فَرحانة",meaning:"Happy/excited (woman)",sentence:"أنا فرحانة بيك أوي",sentTrans:"ana farhaana biik awi",sentMeaning:"I'm so happy about you",farsi:"خوشحالم"},
+    ],
+  },
+];
+
+// ─── SITUATION SESSIONS ───────────────────────────────────────────────────────
+const SITUATION_SESSIONS = [
+  {id:"s1",title:"Video Call with Family",arabicTitle:"كول مع العيلة",emoji:"📱",color:"#E86A8A",type:"situation",
+    context:"You're on a video call with your husband's Egyptian family. These are the phrases that will make them love you instantly.",
+    vocab:[
+      {id:"vs1_1",egy:"نوّرتونا",trans:"nawwartuna",egyPron:"نَوَّرتونا",meaning:"You've brightened our day (to group)",sentence:"نوّرتونا يا عيلة!",sentTrans:"nawwartuna ya eela!",sentMeaning:"You've brightened our day, family!",farsi:"نور آوردید"},
+      {id:"vs1_2",egy:"وحشتونا",trans:"wahhashtuna",egyPron:"وَحَّشتونا",meaning:"We missed you all",sentence:"وحشتونا والله!",sentTrans:"wahhashtuna wallah!",sentMeaning:"We really missed you all!",farsi:"دلمون تنگتون شده بود"},
+      {id:"vs1_3",egy:"ربنا يحميكم",trans:"rabbena yehmeekum",egyPron:"رَبِّنا يِحميكُم",meaning:"May God protect you all",sentence:"ربنا يحميكم دايماً",sentTrans:"rabbena yehmeekum dayman",sentMeaning:"May God always protect you",farsi:"خدا حفظتون کنه"},
+      {id:"vs1_4",egy:"عامل إيه يا عم",trans:"aamel eih ya amm",egyPron:"عامِل إيه يا عَم",meaning:"How are you, uncle?",sentence:"عامل إيه يا عم؟ الصحة كويسة؟",sentTrans:"aamel eih ya amm? el-sihha kwayyesa?",sentMeaning:"How are you, uncle? Is your health good?",farsi:"حالت چطوره عمو؟"},
+      {id:"vs1_5",egy:"إنتوا بخير؟",trans:"intu bikheer?",egyPron:"إنتوا بِخير؟",meaning:"Are you all well?",sentence:"إنتوا كلكم بخير إن شاء الله؟",sentTrans:"intu kullukum bikheer inshallah?",sentMeaning:"Are you all well, God willing?",farsi:"همه‌تون خوبین؟"},
+      {id:"vs1_6",egy:"شايفينكم قريب",trans:"shayfinkum oreeb",egyPron:"شايفينكُم قَريب",meaning:"We'll see you soon",sentence:"شايفينكم قريب إن شاء الله",sentTrans:"shayfinkum oreeb inshallah",sentMeaning:"We'll see you soon, God willing",farsi:"زود میبینیمتون"},
+      {id:"vs1_7",egy:"البيبي بيسلم عليكم",trans:"el-baby bisallim aleikum",egyPron:"البيبي بِيسَلِّم عَليكُم",meaning:"The baby says hi to you all",sentence:"البيبي بيسلم عليكم وبيحبكم",sentTrans:"el-baby bisallim aleikum we-biyihibbkum",sentMeaning:"The baby says hi and loves you all",farsi:"بیبی بهتون سلام میرسونه"},
+      {id:"vs1_8",egy:"مشتاقين ليكم",trans:"mushtaqeen leekum",egyPron:"مُشتاقين لِيكُم",meaning:"We miss you all",sentence:"مشتاقين ليكم جداً",sentTrans:"mushtaqeen leekum giddan",sentMeaning:"We miss you all so much",farsi:"دلمون برای همتون تنگه"},
+    ],
+  },
+  {id:"s2",title:"At an Egyptian Restaurant",arabicTitle:"في المطعم",emoji:"🍽️",color:"#C4873A",type:"situation",
+    context:"Ordering food, complimenting the cook, asking for things at an Egyptian restaurant.",
+    vocab:[
+      {id:"vs2_1",egy:"الأكل زاكي جداً",trans:"el-akl zaaki giddan",egyPron:"الأكل زاكي جِداً",meaning:"The food is very delicious",sentence:"والله الأكل زاكي جداً، يسلم إيديك!",sentTrans:"wallah el-akl zaaki giddan, yislem eideik!",sentMeaning:"The food is truly delicious, bless your hands!",farsi:"غذا خیلی خوشمزه‌ست"},
+      {id:"vs2_2",egy:"عايزة... من فضلك",trans:"aayza... men fadlak",egyPron:"عايزة... مِن فَضلَك",meaning:"I want... please",sentence:"عايزة كوباية مية من فضلك",sentTrans:"aayza kubbaayet mayya men fadlak",sentMeaning:"I want a glass of water please",farsi:"میخوام... لطفاً"},
+      {id:"vs2_3",egy:"إيه اللي بتنصح بيه؟",trans:"eih elli betnasah biih?",egyPron:"إيه اللي بِتنصَح بيه؟",meaning:"What do you recommend?",sentence:"إيه اللي بتنصح بيه النهارده؟",sentTrans:"eih elli betnasah biih en-naharda?",sentMeaning:"What do you recommend today?",farsi:"چی پیشنهاد میدی؟"},
+      {id:"vs2_4",egy:"الحساب من فضلك",trans:"el-hisaab men fadlak",egyPron:"الحِساب مِن فَضلَك",meaning:"The bill please",sentence:"لو سمحت، الحساب من فضلك",sentTrans:"law samaht, el-hisaab men fadlak",sentMeaning:"Excuse me, the bill please",farsi:"صورتحساب لطفاً"},
+      {id:"vs2_5",egy:"من غير بصل",trans:"min gheir basal",egyPron:"مِن غَير بَصَل",meaning:"Without onions",sentence:"ممكن من غير بصل؟ شكراً",sentTrans:"mumkin min gheir basal? shukran",sentMeaning:"Can it be without onions? Thank you",farsi:"بدون پیاز"},
+      {id:"vs2_6",egy:"شبعت، شكراً",trans:"shabaAt, shukran",egyPron:"شَبِعت، شُكراً",meaning:"I'm full, thank you",sentence:"شبعت والله، الأكل كان تحفة",sentTrans:"shabaAt wallah, el-akl kaan tohfa",sentMeaning:"I'm full honestly, the food was amazing",farsi:"سیر شدم، ممنون"},
+      {id:"vs2_7",egy:"تحفة",trans:"tohfa",egyPron:"تُحفة",meaning:"Amazing / a gem",sentence:"الكشري ده تحفة أوي!",sentTrans:"el-koshari da tohfa awi!",sentMeaning:"This koshari is absolutely amazing!",farsi:"شاهکاره"},
+      {id:"vs2_8",egy:"ممكن كمان؟",trans:"mumkin kamaan?",egyPron:"مُمكِن كَمان؟",meaning:"Can I have more?",sentence:"ممكن كمان خبز من فضلك؟",sentTrans:"mumkin kamaan khubz men fadlak?",sentMeaning:"Can I have more bread please?",farsi:"بیشتر میشه؟"},
+    ],
+  },
+  {id:"s3",title:"When He's on the Phone",arabicTitle:"لما بيتكلم في التليفون",emoji:"📞",color:"#6B9E78",type:"situation",
+    context:"Your husband is on a call with family or friends. Asking who it is, getting his attention, or joining in.",
+    vocab:[
+      {id:"vs3_1",egy:"مين اللي اتصل؟",trans:"meen elli ittasal?",egyPron:"مين اللي اِتَّصَل؟",meaning:"Who called?",sentence:"مين اللي اتصل ده؟",sentTrans:"meen elli ittasal da?",sentMeaning:"Who was that who called?",farsi:"کی زنگ زد؟"},
+      {id:"vs3_2",egy:"كلمهم عني",trans:"kallimhum aanni",egyPron:"كَلِّمهُم عَنّي",meaning:"Say hi to them from me",sentence:"كلمهم عني وقولهم سلام",sentTrans:"kallimhum aanni we-oollhum salaam",sentMeaning:"Say hi to them from me and send my regards",farsi:"از طرف من بهشون سلام برسون"},
+      {id:"vs3_3",egy:"امتى خلص؟",trans:"emta khilas?",egyPron:"إِمتى خِلِص؟",meaning:"When are you done?",sentence:"امتى خلصت من التليفون؟",sentTrans:"emta khilast min el-tilifoon?",sentMeaning:"When are you done with the phone?",farsi:"کی تموم میشه؟"},
+      {id:"vs3_4",egy:"في إيه؟",trans:"fi eih?",egyPron:"في إيه؟",meaning:"What's going on?",sentence:"في إيه؟ كل حاجة تمام؟",sentTrans:"fi eih? kull haaga tamaam?",sentMeaning:"What's going on? Everything okay?",farsi:"چی شده؟"},
+      {id:"vs3_5",egy:"سلم عليهم",trans:"sallim aleihum",egyPron:"سَلِّم عَليهُم",meaning:"Send my greetings",sentence:"سلم عليهم وقولهم وحشونا",sentTrans:"sallim aleihum we-oollhum wahhashoona",sentMeaning:"Send my greetings and tell them we miss them",farsi:"بهشون سلام برسون"},
+      {id:"vs3_6",egy:"هيجوا إمتى؟",trans:"heyigu emta?",egyPron:"هَيجوا إِمتى؟",meaning:"When will they come?",sentence:"هيجوا إمتى يزوروننا؟",sentTrans:"heyigu emta yezooruuna?",sentMeaning:"When will they come visit us?",farsi:"کی میان؟"},
+      {id:"vs3_7",egy:"معاك لحظة؟",trans:"maak lahza?",egyPron:"مَعاك لَحظة؟",meaning:"Do you have a moment?",sentence:"معاك لحظة لما تخلص؟",sentTrans:"maak lahza lamma tkhallas?",sentMeaning:"Do you have a moment when you're done?",farsi:"یه لحظه وقت داری؟"},
+      {id:"vs3_8",egy:"أنا بسمعك",trans:"ana basmaaak",egyPron:"أنا بَسمَعَك",meaning:"I'm listening",sentence:"أنا بسمعك، قول",sentTrans:"ana basmaaak, ool",sentMeaning:"I'm listening, go ahead",farsi:"دارم گوش میدم"},
+    ],
+  },
+  {id:"s4",title:"Talking About the Baby",arabicTitle:"الكلام عن البيبي",emoji:"👶",color:"#E8936A",type:"situation",
+    context:"Milestones, health, cuteness — all the things new parents talk about constantly, in Egyptian Arabic.",
+    vocab:[
+      {id:"vs4_1",egy:"عمل حاجة جديدة",trans:"aamil haaga gideeda",egyPron:"عَمِل حاجة جِديدة",meaning:"He/she did something new",sentence:"البيبي عمل حاجة جديدة النهارده!",sentTrans:"el-baby aamil haaga gideeda en-naharda!",sentMeaning:"The baby did something new today!",farsi:"یه کار جدید کرد"},
+      {id:"vs4_2",egy:"شاطر / شاطرة",trans:"shaatir / shaatra",egyPron:"شاطِر / شاطِرة",meaning:"Smart / well done (m/f)",sentence:"شاطر يا بيبي، برافو عليك!",sentTrans:"shaatir ya baby, bravo aleik!",sentMeaning:"Well done baby, bravo!",farsi:"آفرین"},
+      {id:"vs4_3",egy:"الدنيا وقفت عليه",trans:"el-dunya wa'fat aleih",egyPron:"الدُنيا وَقفَت عَليه",meaning:"He's my whole world",sentence:"والله الدنيا وقفت عليه",sentTrans:"wallah el-dunya wa'fat aleih",sentMeaning:"Honestly he's my whole world",farsi:"دنیام شده"},
+      {id:"vs4_4",egy:"بيطلّع سنانه",trans:"biyettalla snanuh",egyPron:"بِيطَلَّع سَنانُه",meaning:"He's teething",sentence:"البيبي بيطلع سنانه وزعلان",sentTrans:"el-baby biyettalla snanuh we-zaalan",sentMeaning:"The baby is teething and cranky",farsi:"دندون درمیاره"},
+      {id:"vs4_5",egy:"نام طول الليل",trans:"naam tool el-leil",egyPron:"نام طول الليل",meaning:"Slept through the night",sentence:"البيبي نام طول الليل! يلا!",sentTrans:"el-baby naam tool el-leil! yalla!",sentMeaning:"The baby slept through the night! Yes!",farsi:"تمام شب خوابید"},
+      {id:"vs4_6",egy:"حلو قوي",trans:"helw awi",egyPron:"حِلو قَوي",meaning:"So cute / so sweet",sentence:"ده حلو قوي، مش طبيعي!",sentTrans:"da helw awi, mesh tabii!",sentMeaning:"He's so cute, it's unreal!",farsi:"خیلی باناز"},
+      {id:"vs4_7",egy:"عامل كويس",trans:"aamel kwayyes",egyPron:"عامِل كُوَيِّس",meaning:"He's doing well",sentence:"عامل كويس والحمد لله",sentTrans:"aamel kwayyes wel-hamdulillah",sentMeaning:"He's doing well, thank God",farsi:"حالش خوبه"},
+      {id:"vs4_8",egy:"بيتكلم بقى",trans:"biyitkallim baqa",egyPron:"بِيِتكَلَّم بَقى",meaning:"He's talking now",sentence:"البيبي بيتكلم بقى، ماشاء الله!",sentTrans:"el-baby biyitkallim baqa, mashallah!",sentMeaning:"The baby is talking now, mashallah!",farsi:"داره حرف میزنه"},
+    ],
+  },
+  {id:"s5",title:"Gentle Disagreement",arabicTitle:"الاختلاف بلطف",emoji:"🤝",color:"#7A8FA6",type:"situation",
+    context:"Pushing back, expressing a different opinion, or saying no — the Egyptian way: firm but warm.",
+    vocab:[
+      {id:"vs5_1",egy:"أنا مش شايفة كده",trans:"ana mesh shaayfa keda",egyPron:"أنا مِش شايفة كَده",meaning:"I don't see it that way",sentence:"أنا مش شايفة كده، بس ممكن أسمع رأيك",sentTrans:"ana mesh shaayfa keda, bas mumkin asma raayak",sentMeaning:"I don't see it that way, but I can hear your opinion",farsi:"اینطوری فکر نمیکنم"},
+      {id:"vs5_2",egy:"برأيي",trans:"be-raayii",egyPron:"بِرَأيي",meaning:"In my opinion",sentence:"برأيي إحنا لازم نتكلم الأول",sentTrans:"be-raayii ihna laazim nitekallem el-awwal",sentMeaning:"In my opinion we should talk first",farsi:"به نظرم"},
+      {id:"vs5_3",egy:"مش موافقة",trans:"mesh muwaafiqa",egyPron:"مِش مُوافِقة",meaning:"I don't agree (woman)",sentence:"أنا مش موافقة على ده",sentTrans:"ana mesh muwaafiqa ala da",sentMeaning:"I don't agree with this",farsi:"موافق نیستم"},
+      {id:"vs5_4",egy:"اصبر شوية",trans:"esbar shwayya",egyPron:"اِصبَر شُوية",meaning:"Wait a moment",sentence:"اصبر شوية، خليني أفكر",sentTrans:"esbar shwayya, khallini afakkar",sentMeaning:"Wait a moment, let me think",farsi:"یه لحظه صبر کن"},
+      {id:"vs5_5",egy:"ممكن نتكلم؟",trans:"mumkin nitekallem?",egyPron:"مُمكِن نِتكَلَّم؟",meaning:"Can we talk?",sentence:"ممكن نتكلم في الموضوع ده؟",sentTrans:"mumkin nitekallem fi el-mawdoo da?",sentMeaning:"Can we talk about this topic?",farsi:"میتونیم حرف بزنیم؟"},
+      {id:"vs5_6",egy:"أنا حاسة إن",trans:"ana Haassa inn",egyPron:"أنا حاسَّة إن",meaning:"I feel that... (woman)",sentence:"أنا حاسة إن ده مش صح",sentTrans:"ana Haassa inn da mesh sahh",sentMeaning:"I feel that this isn't right",farsi:"احساس میکنم که"},
+      {id:"vs5_7",egy:"خليني أشرح",trans:"khallini ashraH",egyPron:"خَلِّني أشرَح",meaning:"Let me explain",sentence:"خليني أشرح وجهة نظري",sentTrans:"khallini ashraH wighat nazari",sentMeaning:"Let me explain my point of view",farsi:"بذار توضیح بدم"},
+      {id:"vs5_8",egy:"في الآخر إنت اللي تقرر",trans:"fi el-aakher inta elli teqarrar",egyPron:"في الآخِر إنت اللي تِقَرَّر",meaning:"In the end it's your decision",sentence:"في الآخر إنت اللي تقرر، بس رأيي كده",sentTrans:"fi el-aakher inta elli teqarrar, bas raayii keda",sentMeaning:"In the end it's your decision, but my opinion is this",farsi:"آخرش تصمیم با توئه"},
+    ],
+  },
+  {id:"s6",title:"How You're Feeling",arabicTitle:"كيف حالك",emoji:"💆‍♀️",color:"#B5734A",type:"situation",
+    context:"Expressing your emotional and physical state — exhausted new-mom to proud wife to overwhelmed human.",
+    vocab:[
+      {id:"vs6_1",egy:"مش لاقية نفسي",trans:"mesh laaya nafsi",egyPron:"مِش لاقية نَفسي",meaning:"I'm overwhelmed (lit. can't find myself)",sentence:"أنا مش لاقية نفسي من التعب",sentTrans:"ana mesh laaya nafsi min el-taab",sentMeaning:"I'm so exhausted I can't find myself",farsi:"خودمو گم کردم از خستگی"},
+      {id:"vs6_2",egy:"محتاجة مساعدة",trans:"muhtaaga musaaada",egyPron:"مُحتاجة مُساعَدة",meaning:"I need help (woman)",sentence:"أنا محتاجة مساعدة دلوقتي",sentTrans:"ana muhtaaga musaaada dilwaqti",sentMeaning:"I need help right now",farsi:"کمک لازم دارم"},
+      {id:"vs6_3",egy:"فخورة بيك",trans:"fakhoora biik",egyPron:"فَخورة بيك",meaning:"I'm proud of you (woman to man)",sentence:"أنا فخورة بيك جداً يا حبيبي",sentTrans:"ana fakhoora biik giddan ya habibi",sentMeaning:"I'm so proud of you, my love",farsi:"بهت افتخار میکنم"},
+      {id:"vs6_4",egy:"محتاجة لحظة لنفسي",trans:"muhtaaga lahza le-nafsi",egyPron:"مُحتاجة لَحظة لِنَفسي",meaning:"I need a moment to myself",sentence:"محتاجة لحظة لنفسي بس",sentTrans:"muhtaaga lahza le-nafsi bass",sentMeaning:"I just need a moment to myself",farsi:"به یه لحظه برای خودم نیاز دارم"},
+      {id:"vs6_5",egy:"أنا بخير، شكراً",trans:"ana bikheer, shukran",egyPron:"أنا بِخير، شُكراً",meaning:"I'm fine, thank you",sentence:"أنا بخير، شكراً إنك سألت",sentTrans:"ana bikheer, shukran innak saalt",sentMeaning:"I'm fine, thanks for asking",farsi:"خوبم، ممنون"},
+      {id:"vs6_6",egy:"مبسوطة إني اتعلمت",trans:"mabsoota inni itaallamti",egyPron:"مَبسوطة إني اِتعَلَّمتِ",meaning:"Happy I learned (this)",sentence:"أنا مبسوطة إني اتعلمت عربي",sentTrans:"ana mabsoota inni itaallamti arabi",sentMeaning:"I'm happy I learned Arabic",farsi:"خوشحالم که یاد گرفتم"},
+      {id:"vs6_7",egy:"وحيدة شوية",trans:"wahiida shwayya",egyPron:"وَحيدة شُوية",meaning:"A bit lonely",sentence:"بحس إني وحيدة شوية",sentTrans:"baHiss inni wahiida shwayya",sentMeaning:"I feel a little lonely",farsi:"یه کم تنهام"},
+      {id:"vs6_8",egy:"ربنا يصبّرني",trans:"rabbena yesabbarni",egyPron:"رَبِّنا يِصَبَّرني",meaning:"May God give me patience",sentence:"ربنا يصبّرني على الدنيا دي!",sentTrans:"rabbena yesabbarni ala el-dunya di!",sentMeaning:"May God give me patience in this world!",farsi:"خدا صبر بده"},
+    ],
+  },
+  {id:"s7",title:"Egyptian Idioms",arabicTitle:"أمثال مصرية",emoji:"🌶️",color:"#E85D5D",type:"situation",
+    context:"Expressions Egyptians use all the time that don't translate literally. Using these will make Egyptians light up with delight.",
+    vocab:[
+      {id:"vs7_1",egy:"على راسي",trans:"ala raasi",egyPron:"على راسي",meaning:"With pleasure / I'd be honored (lit. on my head)",sentence:"تأمر بأي حاجة؟ على راسي!",sentTrans:"taaamur be-ay haaga? ala raasi!",sentMeaning:"Whatever you need, with pleasure!",farsi:"روی چشمم"},
+      {id:"vs7_2",egy:"ده راسه تعبان",trans:"da raasu taabaan",egyPron:"ده راسُه تَعبان",meaning:"He's stubborn (lit. his head is tired)",sentence:"آه، ده راسه تعبان أوي!",sentTrans:"aah, da raasu taabaan awi!",sentMeaning:"Ugh, he's being so stubborn!",farsi:"کله‌خره"},
+      {id:"vs7_3",egy:"بناكل عيش",trans:"banaakul eish",egyPron:"بِناكُل عيش",meaning:"We're getting by (lit. eating bread)",sentence:"إزيك؟ بناكل عيش والحمد لله",sentTrans:"izzayyak? banaakul eish wel-hamdulillah",sentMeaning:"How are you? We're getting by, thank God",farsi:"نون درمیاریم"},
+      {id:"vs7_4",egy:"حلو أوي يا ستي",trans:"helw awi ya setti",egyPron:"حِلو أَوي يا سِتّي",meaning:"How charming, my lady",sentence:"بتتكلمي عربي؟ حلو أوي يا ستي!",sentTrans:"bititkallimi arabi? helw awi ya setti!",sentMeaning:"You speak Arabic? How charming, my lady!",farsi:"آفرین خانم"},
+      {id:"vs7_5",egy:"كل سنة وإنت طيب",trans:"kull sana we-inta tayyib",egyPron:"كُل سَنة وإنت طَيِّب",meaning:"Happy birthday / happy occasion",sentence:"كل سنة وإنت طيب يا حبيبي!",sentTrans:"kull sana we-inta tayyib ya habibi!",sentMeaning:"Happy birthday my love!",farsi:"سالت مبارک"},
+      {id:"vs7_6",egy:"عين الحسود فيها عود",trans:"ein el-hasood fiha ood",egyPron:"عَين الحَسود فيها عود",meaning:"No evil eye (lit. in the envious eye there's a stick)",sentence:"ماشاء الله على البيبي، عين الحسود فيها عود!",sentTrans:"mashallah ala el-baby, ein el-hasood fiha ood!",sentMeaning:"Mashallah on the baby, no evil eye!",farsi:"چشم حسود کور"},
+      {id:"vs7_7",egy:"ربنا يكرمك",trans:"rabbena yekrammak",egyPron:"رَبِّنا يِكرَمَّك",meaning:"May God honor you",sentence:"شكراً جداً! ربنا يكرمك",sentTrans:"shukran giddan! rabbena yekrammak",sentMeaning:"Thank you so much! May God honor you",farsi:"خدا عزیزت کنه"},
+      {id:"vs7_8",egy:"إيدك أطول من كده",trans:"eidak atwal min keda",egyPron:"إيدَك أطوَل مِن كَده",meaning:"You can do more (lit. your arm is longer than that)",sentence:"إيدك أطول من كده، إنت قادر!",sentTrans:"eidak atwal min keda, inta qadir!",sentMeaning:"You're capable of more than that!",farsi:"دستت درازتر از اینه"},
+    ],
+  },
+  {id:"s8",title:"Romantic Phrases",arabicTitle:"كلام الحب",emoji:"❤️",color:"#E86A8A",type:"situation",
+    context:"What Egyptians say to the people they love. Warm, poetic, deeply felt — these will mean the world to your husband.",
+    vocab:[
+      {id:"vs8_1",egy:"إنت حياتي",trans:"inta Hayaati",egyPron:"إنت حَياتي",meaning:"You are my life",sentence:"بحبك أوي، إنت حياتي",sentTrans:"bahibbak awi, inta Hayaati",sentMeaning:"I love you so much, you are my life",farsi:"تو زندگیمی"},
+      {id:"vs8_2",egy:"أنا بعشقك",trans:"ana baashaqak",egyPron:"أنا بَعشَقَك",meaning:"I adore you / I'm crazy about you",sentence:"أنا بعشقك من أول ما شفتك",sentTrans:"ana baashaqak min awwil ma shoftak",sentMeaning:"I've adored you since the first time I saw you",farsi:"عاشقتم"},
+      {id:"vs8_3",egy:"نورت حياتي",trans:"nawwart Hayaati",egyPron:"نَوَّرت حَياتي",meaning:"You've lit up my life",sentence:"من لما جيت في حياتي، نورت حياتي",sentTrans:"min lamma geet fi Hayaati, nawwart Hayaati",sentMeaning:"Since you came into my life, you've lit it up",farsi:"زندگیمو روشن کردی"},
+      {id:"vs8_4",egy:"روحي",trans:"rooHi",egyPron:"روحي",meaning:"My soul (term of endearment)",sentence:"تعالى يا روحي، وحشتني",sentTrans:"taala ya rooHi, wahhashtani",sentMeaning:"Come here my soul, I missed you",farsi:"جانم"},
+      {id:"vs8_5",egy:"إنت كل حاجة عندي",trans:"inta kull haaga aandi",egyPron:"إنت كُل حاجة عَندي",meaning:"You are everything to me",sentence:"إنت كل حاجة عندي في الدنيا دي",sentTrans:"inta kull haaga aandi fi el-dunya di",sentMeaning:"You are everything to me in this world",farsi:"همه چیزمی"},
+      {id:"vs8_6",egy:"ربنا يخليك ليّا",trans:"rabbena yekhalliik liyya",egyPron:"رَبِّنا يِخَلِّيك لِيَّا",meaning:"May God keep you for me",sentence:"ربنا يخليك ليّا دايماً",sentTrans:"rabbena yekhalliik liyya dayman",sentMeaning:"May God always keep you for me",farsi:"خدا برام نگهت داره"},
+      {id:"vs8_7",egy:"بتوّجعني لما تبعد",trans:"bitwagga'ni lamma tibed",egyPron:"بِتوَجَّعني لَمّا تِبعَد",meaning:"I ache when you're away",sentence:"بتوّجعني لما تبعد عني",sentTrans:"bitwagga'ni lamma tibed aanni",sentMeaning:"I ache when you're away from me",farsi:"وقتی دوری دلم میگیره"},
+      {id:"vs8_8",egy:"وحشتني أوي",trans:"wahhashtani awi",egyPron:"وَحَّشتَني أَوي",meaning:"I missed you so much",sentence:"وحشتني أوي يا حبيبي، فين كنت؟",sentTrans:"wahhashtani awi ya habibi, fein kont?",sentMeaning:"I missed you so much my love, where were you?",farsi:"خیلی دلم تنگت شده بود"},
+    ],
+  },
+];
+
+// ─── ALL VOCAB (includes grammar + situation) ─────────────────────────────────
+const ALL_VOCAB = [
+  // Regular vocabulary sessions (with batch unlocking)
+  ...SESSIONS.flatMap(s => {
+    const extra = EXTRA_VOCAB[s.id];
+    return [
+      ...s.vocab,
+      ...extra.batch2,
+      ...extra.batch3,
+    ].map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}));
+  }),
+  // Grammar sessions (all 8 words available from start)
+  ...GRAMMAR_SESSIONS.flatMap(s =>
+    s.vocab.map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}))
+  ),
+  // Situation sessions (all 8 words available from start)
+  ...SITUATION_SESSIONS.flatMap(s =>
+    s.vocab.map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}))
+  ),
+];
 const ALL_MEANINGS      = ALL_VOCAB.map(v => v.meaning);
 const ALL_SENT_MEANINGS = ALL_VOCAB.map(v => v.sentMeaning);
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
 const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_KEY;
-const VAPID_PUBLIC_KEY = "BDwu1C95RuRl7jLHzxzpk8YNwzAYhGo8wDzXNSWvLP_c8ME8vMUkuK2w2miArLjrlpPDyFrUMi_SxpaPXtfMiFM";
 
 // ─── SUPABASE HELPERS ─────────────────────────────────────────────────────────
 // All progress is stored as a single JSON blob per user in the "progress" table.
@@ -1078,11 +1382,19 @@ function TestExCard({ item, onResult, onBookmark, blocked=false }) {
 // ─── TEST SESSION ─────────────────────────────────────────────────────────────
 // Builds test queue from only unlocked words, weighted by testProgress.
 function buildTestQueue(testProgress, unlockedBatches) {
-  // Get only words that are currently unlocked
-  const unlockedVocab = SESSIONS.flatMap(s => {
+  // Regular vocabulary sessions (unlocked batches only)
+  const regularVocab = SESSIONS.flatMap(s => {
     const ub = (unlockedBatches && unlockedBatches[s.id]) || 1;
     return getSessionVocab(s.id, ub).map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}));
   });
+  // Grammar + situation sessions (all vocab always available)
+  const grammarVocab = GRAMMAR_SESSIONS.flatMap(s =>
+    s.vocab.map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}))
+  );
+  const situationVocab = SITUATION_SESSIONS.flatMap(s =>
+    s.vocab.map(v => ({...v, sessionEmoji:s.emoji, sessionColor:s.color, sessionTitle:s.title}))
+  );
+  const unlockedVocab = [...regularVocab, ...grammarVocab, ...situationVocab];
 
   const types = ["word","sentence","reverse"];
   const weighted = [];
@@ -1560,7 +1872,6 @@ export default function App() {
   const [nameInput, setNameInput] = useState("");     // for the name entry screen
   const [syncing, setSyncing]     = useState(false);  // shows sync indicator
   const [showReminder, setShowReminder] = useState(false); // late-day reminder banner
-  const [reminderType, setReminderType] = useState("normal"); // "normal" | "rescue" (missed yesterday)
 
   // Feedback widget state — must be at top, before any early returns
   const [fbOpen, setFbOpen]       = useState(false);
@@ -1604,7 +1915,11 @@ export default function App() {
   function buildPlan(tp, lf, ub) {
     const items = [];
     // Only count unlocked words as "new" — not locked batch words
-    const unlockedVocab = SESSIONS.flatMap(s => getSessionVocab(s.id, (ub||{})[s.id]||1));
+    const unlockedVocab = [
+      ...SESSIONS.flatMap(s => getSessionVocab(s.id, (ub||{})[s.id]||1)),
+      ...GRAMMAR_SESSIONS.flatMap(s => s.vocab),
+      ...SITUATION_SESSIONS.flatMap(s => s.vocab),
+    ];
     const unseenCount = unlockedVocab.filter(v => { const p = (tp||{})[v.id]; return !p||!p.seen; }).length;
     if (unseenCount > 0) {
       const wordList = unlockedVocab.filter(v => { const p=(tp||{})[v.id]; return !p||!p.seen; }).map(v=>v.egy).join(" · ");
@@ -1646,6 +1961,15 @@ export default function App() {
       const uniqueDays = [...new Set((st.testHistory||[]).map(h=>h.date))]
         .filter(d => d && d.match(/^\d{4}-\d{2}-\d{2}$/))
         .sort((a,b) => b.localeCompare(a));
+
+      function prevDay(dateStr) {
+        const [y,m,d] = dateStr.split('-').map(Number);
+        const dt = new Date(y, m-1, d); // local constructor — no UTC
+        dt.setDate(dt.getDate() - 1);
+        return dt.getFullYear() + '-' +
+          String(dt.getMonth()+1).padStart(2,'0') + '-' +
+          String(dt.getDate()).padStart(2,'0');
+      }
 
       let streak = 0;
       if (uniqueDays.length > 0) {
@@ -1707,107 +2031,60 @@ export default function App() {
   // Keep refs in sync with state
   useEffect(() => { userIdRef.current = userId; }, [userId]);
 
-  // Push notification setup — register service worker + subscribe to push
+  // Push notification setup — request permission once user is logged in
   useEffect(() => {
     if (!userId) return;
-    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-      console.log("Push notifications not supported on this browser");
-      return;
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
+    // Request permission if not yet granted
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
     }
-
-    async function setupPush() {
-      try {
-        // 1. Register the service worker (public/sw.js)
-        const registration = await navigator.serviceWorker.register("/sw.js");
-        console.log("Service worker registered");
-
-        // 2. Ask permission if not yet decided
-        if (Notification.permission === "default") {
-          const result = await Notification.requestPermission();
-          if (result !== "granted") return;
-        }
-        if (Notification.permission !== "granted") return;
-
-        // 3. Check if already subscribed
-        let subscription = await registration.pushManager.getSubscription();
-
-        if (!subscription) {
-          // 4. Subscribe using our VAPID public key
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: VAPID_PUBLIC_KEY,
-          });
-        }
-
-        // 5. Save the subscription to Supabase so our cron job can find it later
-        // Each device has a unique "endpoint" — this lets one user have multiple devices
-        const subJson = subscription.toJSON();
-        await fetch(`${process.env.REACT_APP_SUPABASE_URL}/rest/v1/push_subscriptions`, {
-          method: "POST",
-          headers: {
-            "apikey": process.env.REACT_APP_SUPABASE_KEY,
-            "Authorization": `Bearer ${process.env.REACT_APP_SUPABASE_KEY}`,
-            "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates",
-          },
-          body: JSON.stringify({
-            user_id: userIdRef.current,
-            subscription: subJson,
-            endpoint: subJson.endpoint,
-          }),
-        });
-        console.log("Push subscription saved for this device");
-      } catch (err) {
-        console.error("Push setup failed:", err);
-      }
-    }
-
-    setupPush();
   }, [userId]);
 
-  // Re-check reminder whenever stats change
+  // Schedule daily 7pm reminder notification
+  useEffect(() => {
+    if (!userId) return;
+    if (!("Notification" in window)) return;
+
+    function scheduleReminder() {
+      const now = new Date();
+      const today7pm = new Date();
+      today7pm.setHours(19, 0, 0, 0);
+      // If already past 7pm today, schedule for tomorrow
+      if (now > today7pm) today7pm.setDate(today7pm.getDate() + 1);
+      const msUntil = today7pm - now;
+
+      return setTimeout(() => {
+        // Check if practiced today
+        const todayStr = localDateStr();
+        const practiced = (statsRef.current.testHistory||[]).some(h => h.date === todayStr);
+        if (!practiced && Notification.permission === "granted") {
+          new Notification("يلا! 🔥 Time to practice your Egyptian Arabic", {
+            body: "Don't break your streak! Just 5 minutes keeps it alive.",
+            icon: "/favicon.ico",
+          });
+        }
+        // Show in-app banner too
+        if (!practiced) setShowReminder(true);
+        // Reschedule for tomorrow
+        scheduleReminder();
+      }, msUntil);
+    }
+
+    const t = scheduleReminder();
+    return () => clearTimeout(t);
+  }, [userId]);
+
+  // Re-check reminder whenever stats change (catches case where stats load after mount)
   useEffect(() => {
     statsRef.current = stats;
     if (!userId) return;
     const now = new Date();
-    const todayStr = localDateStr();
-    const yesterdayStr = prevDay(todayStr);
-    const history = stats.testHistory||[];
-    const practicedToday = history.some(h => h.date === todayStr);
-    const practicedYesterday = history.some(h => h.date === yesterdayStr);
-
-    // Apply streak penalty: if missed yesterday AND day before (no rescue taken)
-    // Check if 2 days ago was also missed — meaning rescue window passed
-    const twoDaysAgoStr = prevDay(yesterdayStr);
-    const practiced2DaysAgo = history.some(h => h.date === twoDaysAgoStr);
-    if (!practicedToday && !practicedYesterday && practiced2DaysAgo && (stats.dayStreak||0) > 0) {
-      // Missed rescue window — apply 5-day penalty (saved to Supabase)
-      const penalty = Math.min(5, stats.dayStreak||0);
-      const newStreak = Math.max(0, (stats.dayStreak||0) - penalty);
-      if (newStreak !== stats.dayStreak) {
-        const newStats = {...stats, dayStreak: newStreak};
-        setStats(newStats);
-        statsRef.current = newStats;
-        const snap = { learnFlags, testProgress, stats: newStats };
-        localSet("egy_progress_cache", snap);
-        saveUserProgress(userIdRef.current, snap);
-      }
-    }
-
-    if (practicedToday) {
-      setShowReminder(false);
-      return;
-    }
-    // Show rescue message if missed yesterday but streak > 0
-    if (!practicedYesterday && (stats.dayStreak||0) > 0 && practiced2DaysAgo) {
-      setReminderType("rescue");
-      setShowReminder(true);
-      return;
-    }
-    // Regular reminder after 6pm
-    if (now.getHours() >= 18) {
-      setReminderType("normal");
-      setShowReminder(true);
+    if (now.getHours() >= 19) {
+      const todayStr = localDateStr();
+      const practiced = (stats.testHistory||[]).some(h => h.date === todayStr);
+      if (practiced) setShowReminder(false); // practiced today — hide reminder
+      else setShowReminder(true);
     }
   }, [stats, userId]);
 
@@ -1910,9 +2187,9 @@ export default function App() {
       if (r.correct===null) continue;
       const old = newTP[r.vocabId]||{correct:0,wrong:0,seen:false};
       if (r.correct===true) {
-        newTP[r.vocabId] = {...old, correct:(old.correct||0)+1, wrong:Math.max(0,(old.wrong||0)-1), seen:true};
+        newTP[r.vocabId] = {correct:(old.correct||0)+1, wrong:Math.max(0,(old.wrong||0)-1), seen:true};
       } else {
-        newTP[r.vocabId] = {...old, correct:old.correct||0, wrong:(old.wrong||0)+1, seen:true};
+        newTP[r.vocabId] = {correct:old.correct||0, wrong:(old.wrong||0)+1, seen:true};
       }
     }
     setTestProgress(newTP);
@@ -2218,13 +2495,15 @@ export default function App() {
               </div>
 
               <p style={{fontSize:13,color:"#555",lineHeight:1.7,marginBottom:14,background:"#FFF8E7",borderRadius:10,padding:"10px 14px"}}>
-                <strong>How to use Learn:</strong> Read each word, tap ▼ to expand the example sentence, then tap <em>Practice these words</em> to quiz yourself. Words you get wrong get a 🚩 — they'll be prioritized next time you practice this session.
+                <strong>How to use Learn:</strong> Read each word, tap ▼ to expand the example sentence, then tap <em>Practice these words</em> to quiz yourself. Words you get wrong get a 🚩 — they'll be prioritized next time.
               </p>
-              <p style={A.secLabel}>Sessions</p>
+
+              {/* ── GROUP 1: VOCABULARY ── */}
+              <p style={A.secLabel}>📚 Vocabulary</p>
               {SESSIONS.map(s=>{
                 const ub = unlockedBatches[s.id] || 1;
                 const currentVocab = getSessionVocab(s.id, ub);
-                const totalAvailable = getSessionVocab(s.id, 3).length; // 20
+                const totalAvailable = getSessionVocab(s.id, 3).length;
                 const flagged = currentVocab.filter(v=>learnFlags[v.id]).length;
                 const newCount = currentVocab.filter(v=>!testProgress[v.id]?.seen).length;
                 return (
@@ -2247,6 +2526,60 @@ export default function App() {
                   </div>
                 );
               })}
+
+              {/* ── GROUP 2: GRAMMAR PATTERNS ── */}
+              <p style={{...A.secLabel, marginTop:20}}>🧠 Grammar Patterns</p>
+              <p style={{fontSize:12,color:"#888",marginBottom:10,paddingLeft:4}}>
+                Learn the rules, then practice applying them.
+              </p>
+              {GRAMMAR_SESSIONS.map(s=>{
+                const newCount = s.vocab.filter(v=>!testProgress[v.id]?.seen).length;
+                return (
+                  <div key={s.id} onClick={()=>{setActiveLearnSession(s);setLearnMode("browse");setLearnDoneData(null);}}
+                    style={{...A.row,borderLeft:`5px solid ${s.color}`}}>
+                    <span style={{fontSize:26}}>{s.emoji}</span>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
+                        <span style={{fontWeight:"bold",fontSize:15}}>{s.title}</span>
+                        <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                          {newCount>0&&<span style={{fontSize:10,background:"#E8936A",color:"#fff",padding:"2px 7px",borderRadius:20,fontWeight:"bold"}}>{newCount} new</span>}
+                        </div>
+                      </div>
+                      <div style={{fontSize:12,color:"#aaa",marginTop:2}}>
+                        8 phrases · {s.arabicTitle}
+                      </div>
+                    </div>
+                    <span style={{color:"#ccc",fontSize:20}}>›</span>
+                  </div>
+                );
+              })}
+
+              {/* ── GROUP 3: SITUATIONS ── */}
+              <p style={{...A.secLabel, marginTop:20}}>🎭 Real Situations</p>
+              <p style={{fontSize:12,color:"#888",marginBottom:10,paddingLeft:4}}>
+                Phrases for real Egyptian life moments.
+              </p>
+              {SITUATION_SESSIONS.map(s=>{
+                const newCount = s.vocab.filter(v=>!testProgress[v.id]?.seen).length;
+                return (
+                  <div key={s.id} onClick={()=>{setActiveLearnSession(s);setLearnMode("browse");setLearnDoneData(null);}}
+                    style={{...A.row,borderLeft:`5px solid ${s.color}`}}>
+                    <span style={{fontSize:26}}>{s.emoji}</span>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
+                        <span style={{fontWeight:"bold",fontSize:15}}>{s.title}</span>
+                        <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                          {newCount>0&&<span style={{fontSize:10,background:"#E8936A",color:"#fff",padding:"2px 7px",borderRadius:20,fontWeight:"bold"}}>{newCount} new</span>}
+                        </div>
+                      </div>
+                      <div style={{fontSize:12,color:"#aaa",marginTop:2}}>
+                        8 phrases · {s.arabicTitle}
+                      </div>
+                    </div>
+                    <span style={{color:"#ccc",fontSize:20}}>›</span>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -2261,12 +2594,63 @@ export default function App() {
                 <div style={{width:70}}/>
               </div>
               <div style={{padding:"12px 16px"}}>
-                <div style={{background:"#FFF8E7",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#666",lineHeight:1.7}}>
-                  {activeLearnSession.tip}
-                </div>
-                {getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id]).map((v,i)=>(
+
+                {/* Grammar explanation card */}
+                {activeLearnSession.type === "grammar" && activeLearnSession.explanation && (
+                  <div style={{background:"#fff",borderRadius:14,padding:"16px",marginBottom:14,
+                    boxShadow:"0 2px 8px rgba(0,0,0,0.08)",border:`2px solid ${activeLearnSession.color}40`}}>
+                    <div style={{fontSize:12,color:activeLearnSession.color,fontWeight:"bold",
+                      textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>
+                      📐 The Rule
+                    </div>
+                    <p style={{fontSize:13,color:"#444",lineHeight:1.7,marginBottom:12}}>
+                      {activeLearnSession.explanation.rule}
+                    </p>
+                    <div style={{background:"#f5f5f5",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+                      <div style={{fontSize:11,color:"#888",marginBottom:4}}>Pattern:</div>
+                      <div style={{fontSize:15,fontWeight:"bold",color:"#333",direction:"rtl"}}>
+                        {activeLearnSession.explanation.pattern}
+                      </div>
+                    </div>
+                    <div style={{fontSize:12,color:"#888",marginBottom:6}}>Quick examples:</div>
+                    {activeLearnSession.explanation.examples.map((ex,i) => (
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",
+                        padding:"5px 0",borderBottom:"1px solid #f0f0f0",fontSize:13}}>
+                        <span style={{fontWeight:"bold",direction:"rtl"}}>{ex.egy}</span>
+                        <span style={{color:"#888",fontSize:12}}>{ex.meaning}</span>
+                      </div>
+                    ))}
+                    <div style={{marginTop:10,background:"#FFF8E7",borderRadius:8,padding:"8px 10px",
+                      fontSize:12,color:"#856404",lineHeight:1.6}}>
+                      💡 {activeLearnSession.explanation.tip}
+                    </div>
+                  </div>
+                )}
+
+                {/* Situation context banner */}
+                {activeLearnSession.type === "situation" && activeLearnSession.context && (
+                  <div style={{background:"#FFF8E7",borderRadius:10,padding:"10px 14px",
+                    marginBottom:14,fontSize:13,color:"#666",lineHeight:1.7,
+                    borderLeft:`4px solid ${activeLearnSession.color}`}}>
+                    🎭 {activeLearnSession.context}
+                  </div>
+                )}
+
+                {/* Regular tip for vocabulary sessions */}
+                {!activeLearnSession.type && activeLearnSession.tip && (
+                  <div style={{background:"#FFF8E7",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#666",lineHeight:1.7}}>
+                    {activeLearnSession.tip}
+                  </div>
+                )}
+
+                {/* Word cards — grammar/situation sessions show all vocab, regular shows unlocked batches */}
+                {(activeLearnSession.type === "grammar" || activeLearnSession.type === "situation"
+                  ? activeLearnSession.vocab
+                  : getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id])
+                ).map((v,i)=>(
                   <VocabCard key={i} v={v} color={activeLearnSession.color} showTrans={showTrans} learnFlags={learnFlags} testProgress={testProgress}/>
                 ))}
+
                 <button onClick={()=>{ setLearnMode("quiz"); setLearnSessionKey(k=>k+1); sessionStartRef.current=Date.now(); setShowReminder(false); }}
                   style={{...A.bigBtn,background:activeLearnSession.color,marginTop:8}}>
                   Practice these words →
@@ -2287,7 +2671,11 @@ export default function App() {
               </div>
               <LearnQuiz
                 key={activeLearnSession.id+"-"+learnSessionKey}
-                sessionVocab={getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id])}
+                sessionVocab={
+                  (activeLearnSession.type === "grammar" || activeLearnSession.type === "situation")
+                    ? activeLearnSession.vocab
+                    : getSessionVocab(activeLearnSession.id, unlockedBatches[activeLearnSession.id])
+                }
                 sessionColor={activeLearnSession.color}
                 learnFlags={learnFlags}
                 fbOpen={fbOpen}
@@ -2409,7 +2797,7 @@ export default function App() {
                     );
                   })}
                 </div>
-                <button onClick={()=>{ setTestRunning(true); setTestSessionKey(k=>k+1); sessionStartRef.current=Date.now(); setShowReminder(false); }} style={{...A.bigBtn,background:"#7B6FA0"}}>
+                <button onClick={()=>{ setTestRunning(true); setTestSessionKey(k=>k+1); sessionStartRef.current=Date.now(); }} style={{...A.bigBtn,background:"#7B6FA0"}}>
                   Start Test →
                 </button>
               </div>
@@ -2608,28 +2996,17 @@ export default function App() {
         <div style={{position:"fixed", bottom:70, left:"50%", transform:"translateX(-50%)",
           width:"calc(100% - 32px)", maxWidth:398, zIndex:998,
           background:"#dc3545", borderRadius:14, padding:"12px 16px",
+          display:"flex", justifyContent:"space-between", alignItems:"center",
           boxShadow:"0 4px 16px rgba(220,53,69,0.4)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-            <div>
-              <div style={{color:"#fff",fontWeight:"bold",fontSize:13}}>
-                {reminderType==="rescue" ? "😬 You missed yesterday!" : "🔥 يلا! Practice time!"}
-              </div>
-              <div style={{color:"rgba(255,255,255,0.85)",fontSize:11,marginTop:2}}>
-                {reminderType==="rescue"
-                  ? `Practice now to save your ${stats.dayStreak}-day streak — last chance!`
-                  : "You haven't practiced today yet. Don't break your streak!"}
-              </div>
+          <div>
+            <div style={{color:"#fff",fontWeight:"bold",fontSize:13}}>🔥 يلا! Practice time!</div>
+            <div style={{color:"rgba(255,255,255,0.85)",fontSize:11,marginTop:2}}>
+              You haven't practiced today yet. Don't break your streak!
             </div>
-            <button onClick={()=>setShowReminder(false)}
-              style={{background:"none",border:"none",color:"rgba(255,255,255,0.7)",
-                fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0}}>✕</button>
           </div>
-          <button onClick={()=>{ setShowReminder(false); setTab("test"); setTestRunning(true); setTestSessionKey(k=>k+1); sessionStartRef.current=Date.now(); }}
-            style={{width:"100%",padding:"9px 12px",background:"rgba(255,255,255,0.2)",
-              border:"1.5px solid rgba(255,255,255,0.5)",borderRadius:10,
-              color:"#fff",fontWeight:"bold",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
-            يلا، let's practice now →
-          </button>
+          <button onClick={()=>setShowReminder(false)}
+            style={{background:"none",border:"none",color:"rgba(255,255,255,0.7)",
+              fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0}}>✕</button>
         </div>
       )}
 
