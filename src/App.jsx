@@ -2762,10 +2762,6 @@ export default function App() {
           </button>
         </div>
       )}
-            style={{background:"none",border:"none",color:"rgba(255,255,255,0.7)",
-              fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0}}>✕</button>
-        </div>
-      )}
 
       {/* Bottom nav */}
       <div style={A.nav}>
