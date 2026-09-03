@@ -1872,6 +1872,7 @@ export default function App() {
   const [nameInput, setNameInput] = useState("");     // for the name entry screen
   const [syncing, setSyncing]     = useState(false);  // shows sync indicator
   const [showReminder, setShowReminder] = useState(false); // late-day reminder banner
+  const [reminderType, setReminderType] = useState("normal"); // "normal" | "rescue"
 
   // Feedback widget state — must be at top, before any early returns
   const [fbOpen, setFbOpen]       = useState(false);
@@ -2864,17 +2865,34 @@ export default function App() {
         <div style={{position:"fixed", bottom:70, left:"50%", transform:"translateX(-50%)",
           width:"calc(100% - 32px)", maxWidth:398, zIndex:998,
           background:"#dc3545", borderRadius:14, padding:"12px 16px",
-          display:"flex", justifyContent:"space-between", alignItems:"center",
           boxShadow:"0 4px 16px rgba(220,53,69,0.4)"}}>
-          <div>
-            <div style={{color:"#fff",fontWeight:"bold",fontSize:13}}>🔥 يلا! Practice time!</div>
-            <div style={{color:"rgba(255,255,255,0.85)",fontSize:11,marginTop:2}}>
-              You haven't practiced today yet. Don't break your streak!
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+            <div>
+              <div style={{color:"#fff",fontWeight:"bold",fontSize:13}}>
+                {reminderType==="rescue" ? "😬 You missed yesterday!" : "🔥 يلا! Practice time!"}
+              </div>
+              <div style={{color:"rgba(255,255,255,0.85)",fontSize:11,marginTop:2}}>
+                {reminderType==="rescue"
+                  ? `Practice now to save your ${stats.dayStreak}-day streak — last chance!`
+                  : "You haven't practiced today yet. Don't break your streak!"}
+              </div>
             </div>
+            <button onClick={()=>setShowReminder(false)}
+              style={{background:"none",border:"none",color:"rgba(255,255,255,0.7)",
+                fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0}}>✕</button>
           </div>
-          <button onClick={()=>setShowReminder(false)}
-            style={{background:"none",border:"none",color:"rgba(255,255,255,0.7)",
-              fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0}}>✕</button>
+          <button onClick={()=>{
+              setShowReminder(false);
+              setTab("test");
+              setTestRunning(true);
+              setTestSessionKey(k=>k+1);
+              sessionStartRef.current=Date.now();
+            }}
+            style={{width:"100%",padding:"9px 12px",background:"rgba(255,255,255,0.2)",
+              border:"1.5px solid rgba(255,255,255,0.5)",borderRadius:10,
+              color:"#fff",fontWeight:"bold",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+            يلا، let's practice now →
+          </button>
         </div>
       )}
 
