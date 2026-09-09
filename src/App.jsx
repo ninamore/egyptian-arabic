@@ -48,6 +48,15 @@ function localDateStr(date = new Date()) {
     String(date.getDate()).padStart(2,'0');
 }
 
+function prevDay(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  dt.setDate(dt.getDate() - 1);
+  return dt.getFullYear() + '-' +
+    String(dt.getMonth()+1).padStart(2,'0') + '-' +
+    String(dt.getDate()).padStart(2,'0');
+}
+
 const SESSIONS = [
   {
     id:1, title:"Baby Talk", arabicTitle:"كلام البيبي", emoji:"👶", color:"#E8936A",
@@ -1082,18 +1091,13 @@ function LearnExCard({ vocab, sessionColor, onResult, onBookmark, testProgress, 
             opacity: (submitted||chosen)&&!blocked?1:0.6}}>
           {submitted ? (isCorrect ? "✓ Next →" : "Next →") : "Submit ✓"}
         </button>
-        {submitted ? (
+        {submitted && (
           <div style={{...X.ghostBtn, flex:1, textAlign:"center",
             color: isCorrect?"#28a745":"#dc3545",
             borderColor: isCorrect?"#28a745":"#dc3545",
             fontWeight:"bold", display:"flex", alignItems:"center", justifyContent:"center"}}>
             {isCorrect ? "✅" : "❌"}
           </div>
-        ) : (
-          <button onClick={() => onResult(null)} disabled={blocked}
-            style={{...X.ghostBtn, flex:1}}>
-            ⏭ Skip
-          </button>
         )}
       </div>
 
