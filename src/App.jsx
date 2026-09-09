@@ -2049,8 +2049,31 @@ export default function App() {
       else newFlags[r.id] = true;
     }
     setLearnFlags(newFlags);
-    // Atomic save — all fresh values
-    const snap = { learnFlags: newFlags, testProgress, stats };
+
+    // Count toward streak and stats — same as Test
+    const correct = results.filter(r=>r.correct===true).length;
+    const wrong   = results.filter(r=>r.correct===false).length;
+    const skipped = results.filter(r=>r.correct===null).length;
+    const now     = new Date();
+    const today   = localDateStr(now);
+    const time    = now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+    const currentStats = statsRef.current;
+    const last    = currentStats.lastPracticeDate;
+    const yesterday = prevDay(today);
+    const newStreak = last===today ? currentStats.dayStreak : last===yesterday ? (currentStats.dayStreak||0)+1 : 1;
+    const newStats = {
+      totalCorrect:(currentStats.totalCorrect||0)+correct,
+      totalWrong:(currentStats.totalWrong||0)+wrong,
+      dayStreak:newStreak,
+      lastPracticeDate:today,
+      testHistory:[...(currentStats.testHistory||[]),{date:today,time,correct,wrong,skipped}].slice(-30),
+    };
+    setStats(newStats);
+    statsRef.current = newStats;
+    setShowReminder(false);
+
+    // Save everything
+    const snap = { learnFlags: newFlags, testProgress, stats: newStats };
     localSet("egy_progress_cache", snap);
     saveUserProgress(userIdRef.current, snap);
   }
@@ -2413,6 +2436,8 @@ export default function App() {
               </div>
               <LearnQuiz
                 key={activeLearnSession.id+"-"+learnSessionKey}
+                testProgress={testProgress}
+                onBookmark={onBookmarkWord}
                 sessionVocab={
                   (activeLearnSession.type === "grammar" || activeLearnSession.type === "situation")
                     ? activeLearnSession.vocab
