@@ -1010,7 +1010,7 @@ function LearnQuiz({ sessionVocab, sessionColor, learnFlags, onComplete, fbOpen=
   );
 }
 
-function LearnExCard({ vocab, sessionColor, onResult, blocked=false }) {
+function LearnExCard({ vocab, sessionColor, onResult, onBookmark, testProgress, blocked=false }) {
   const [chosen, setChosen]     = useState(null);   // selected option
   const [submitted, setSubmitted] = useState(false); // after Submit pressed
   const [options]               = useState(() => wordOptions(vocab.meaning));
@@ -1147,7 +1147,7 @@ function BookmarkBtn({ vocabId, onBookmark, testProgress }) {
   );
 }
 
-function TestExCard({ item, onResult, onBookmark, blocked=false }) {
+function TestExCard({ item, onResult, onBookmark, testProgress, blocked=false }) {
   const vocab   = ALL_VOCAB.find(v => v.id === item.vocabId);
   const type    = item.type;
   const correct = type==="word" ? vocab.meaning : type==="sentence" ? vocab.sentMeaning : vocab.egy;
@@ -1321,7 +1321,7 @@ function buildTestQueue(testProgress, unlockedBatches) {
   return out.slice(0,12);
 }
 
-function TestSession({ testProgress, unlockedBatches, onComplete, onBookmark, blocked=false }) {
+function TestSession({ testProgress, unlockedBatches, onComplete, onSeen, onBookmark, blocked=false }) {
   const [queue] = useState(() => buildTestQueue(testProgress, unlockedBatches));
   const [idx,setIdx]         = useState(0);
   const [results,setResults] = useState([]);
@@ -1484,7 +1484,7 @@ function TestSession({ testProgress, unlockedBatches, onComplete, onBookmark, bl
       <div style={{padding:"0 16px"}}>
         <TestExCard key={`${idx}-${queue[idx].vocabId}-${queue[idx].type}`}
           item={queue[idx]} onResult={handleResult} blocked={blocked}
-          onBookmark={onBookmark}/>
+          onSeen={onSeen} onBookmark={onBookmark} testProgress={testProgress}/>
       </div>
     </div>
   );
